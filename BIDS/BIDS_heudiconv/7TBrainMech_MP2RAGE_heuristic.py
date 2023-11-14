@@ -74,7 +74,7 @@ def infotodict(seqinfo):
             info[UNIDEN].append(s.series_id)
         if "MP2RAGEPTX_TR6000_1mmiso_T1_Images" in s.series_description:
             info[T1].append(s.series_id)
-        if "B1-abs-1slc-singleChannelMode-B1" in s.dcm_dir_name:
-            info[tfl_b1map].append(s.series_id)
+        #if "B1-abs-1slc-singleChannelMode-B1" in s.dcm_dir_name:
+            #info[tfl_b1map].append(s.series_id)
 
     return info
