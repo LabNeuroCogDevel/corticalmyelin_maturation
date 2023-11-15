@@ -5,7 +5,7 @@ script_name=$0
 ## Note: copy fsaverage from freesurfer 7.4.1 into the freesurfer_dir before running on rhea
 usage() {
 	cat << EOF >&2
-Usage: $script_name [-s] [-m] [-i] [-f] [-c] [-r] [-l] [-p]
+Usage: $script_name [-s] [-m] [-i] [-f] [-c] [-r] [-l] [-p] [-d]
 
 -s <subject_id>: The subject identifier. This is the subject's directory name in the freesurfer SUBJECTS_DIR (i.e., the identifier used with --s in freesurfer commands; for longitudinal freesurfer output this would be <subject>_<session>.long.<subject>
 -m <moving_image>: Full path to the volumetric file to use for registration to the subject's freesurfer-generated T1.mgz image
@@ -14,7 +14,8 @@ Usage: $script_name [-s] [-m] [-i] [-f] [-c] [-r] [-l] [-p]
 -c <freesurfer_sif>: Full path to the singularity SIF container with the freesurfer version used to create the data in freesurfer_dir
 -r <registration_dof>: Registration dof: 6, 9, or 12 [default 6]
 -l <freesurfer_license>: Full path to a freesurfer license.txt
--p <projection_depth>: The depth of the cortical surface, between the GM-WM boundary (0) and the pial surface (1), to project values to the surface from. 0.5 samples the middle of the cortical surface. Negative values project into the white matter. Can accept a comma separated list of values [default 0.5] 
+-p <projection_fraction>: The fractional depth of the cortical surface, between the GM-WM boundary (0) and the pial surface (1), to project values to the surface from. 0.5 samples the middle of the cortical surface. Negative values project into the white matter. Can accept a comma separated list of values [default option; default value = 0.5]
+-d <projection_distance>: The distance (in mm) between the GM-WM boundary and the pial surface to project values to the surface from. This projects the specified distance at all points on the surface regardless of the total thickness. Negative values project mm into the white matter. Can accept a comma separated listed of values 
 EOF
 
 	exit 1
@@ -27,9 +28,10 @@ freesurfer_dir=false
 freesurfer_sif=false
 registration_dof=6
 freesurfer_license=false
-projection_depth=0.5
+projection_fraction=0.5
+projection_distance=false
 
-while getopts "s:m:i:f:c:r:l:p:" opt; do
+while getopts "s:m:i:f:c:r:l:p:d:" opt; do
 	case $opt in 
 		(s) subject_id=$OPTARG;;
 		(m) moving_image=$OPTARG;;
@@ -38,7 +40,8 @@ while getopts "s:m:i:f:c:r:l:p:" opt; do
 		(c) freesurfer_sif=$OPTARG;;
 		(r) registration_dof=$OPTARG;;
 		(l) freesurfer_license=$OPTARG;;
-		(p) projection_depth=$OPTARG;;
+		(p) projection_fraction=$OPTARG;;
+		(d) projection_distance=$OPTARG;;
 		 *) usage;;
 	esac
 
@@ -66,16 +69,43 @@ input_image_dir=$(dirname $input_image)
 ## Register the moving_image to the subject's freesurfer-generated T1.mgz and save the lta transform file
 singularity exec --writable-tmpfs -B $moving_image_dir:/moving -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_coreg --sd /opt/freesurfer/subjects --s $subject_id --mov /moving/$moving_image_name --ref /opt/freesurfer/subjects/$subject_id/mri/T1.mgz --reg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --dof $registration_dof
 
-## Project the input_image to the subject's freesurfer-generated native cortical surface 
+## Project the input_image to the subject's freesurfer-generated native cortical surface
+if [[ "$projection_distance" =~ false ]] ; then #projection fraction mode
 for hemi in lh rh; do
-	for depth in ${projection_depth//,/ }; do
-		singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}depth.mgh
+	for depth in ${projection_fraction//,/ }; do
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.mgh
 	done
 done
+fi
+
+if [[ "$projection_distance" != false ]] ; then #projection distance (mm) mode
+for hemi in lh rh; do
+	for depth in ${projection_distance//,/ }; do
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projdist $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.mgh
+	done
+done
+fi
+
 ## Project the input image to the fsaverage surface
+if [[ "$projection_distance" =~ false ]] ; then #projection fraction mode 
 for hemi in lh rh; do
-	for depth in ${projection_depth//,/ }; do
-		singularity exec --writable-tmpfs -B $input_image_dir:/input -B ${freesurfer_dir}:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --trgsubject fsaverage  --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}depth.fsaverage.mgh
+	for depth in ${projection_fraction//,/ }; do
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B ${freesurfer_dir}:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --trgsubject fsaverage  --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fsaverage.mgh
 	done
 done
+fi
+
+if [[ "$projection_distance" != false ]] ; then #projection distance (mm) mode 
+for hemi in lh rh; do
+	for depth in ${projection_distance//,/ }; do
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B ${freesurfer_dir}:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projdist $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --trgsubject fsaverage  --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fsaverage.mgh
+	done
+done
+fi
+
+
+
+
+
+
 
