@@ -8,8 +8,9 @@ def create_key(template, outtype=('nii.gz',), annotation_classes=None):
         raise ValueError('Template must be a valid format string')
     return template, outtype, annotation_classes
 
-
+grouping = 'AcquisitionDate'
 # **********************************************************************************
+
 
 ## MP2RAGE
 inv1_phase = create_key(
