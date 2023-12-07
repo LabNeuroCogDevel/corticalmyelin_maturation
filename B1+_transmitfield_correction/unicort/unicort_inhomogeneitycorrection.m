@@ -22,11 +22,11 @@ for id = 1:length(subjects)
 	subid(1:4) = []; %remove "sub-" from the BIDS id
 
 	inputs = {inputs_base{:} char(subid)};
-	try
-		run spm_BIDS_App.m; 
-	end
-	if ~exist('/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/unicort_UNI/subjects{id}', 'dir');
-		sprintf("running UNICORT on subjects{id}")
-		run(config_UNI)
+	if ~exist(sprintf('/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/unicort_UNI/%s', subjects{id}), 'dir');
+	sprintf("running UNICORT on subjects{id}")
+		try
+			run spm_BIDS_App.m; 
+		end
+	run(config_UNI)
 	end
 end
