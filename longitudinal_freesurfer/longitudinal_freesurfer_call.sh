@@ -24,8 +24,8 @@ bids_dir=${BIDS_DIR:-false}
 freesurfer_dir=${FS_DIR:-false}
 freesurfer_sif=${FS_SIF:-false}
 freesurfer_license=${LIC:-false}
-acquisition_label=FALSE
-rerun=FALSE
+acquisition_label=${ACQ:-FALSE}
+rerun=$RERUN:-FALSE}
 
 while getopts "s:a:b:f:c:l:r:" opt; do
         case $opt in 
