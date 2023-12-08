@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-#
+
 # A script to send all the files we need to the Pittsburgh super computer for running BIDS freesurfer on 7T UNIs
 
 #Directories on rhea
 BIDS_dir=/Volumes/Hera/Projects/corticalmyelin_development/BIDS
 software_dir=/Volumes/Hera/Projects/corticalmyelin_development/software
 sample_dir=/Volumes/Hera/Projects/corticalmyelin_development/sample_info
-
 
 #Directories on PSC
 psc_destdir=/ocean/projects/soc230004p/shared/datasets/7TBrainMech
