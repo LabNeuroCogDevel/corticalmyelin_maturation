@@ -11,9 +11,7 @@ while read line; do
 	subject_id=${subses% *}
 	session_id=${subses#* }
 	#Bring the corrected UNI image to BIDS_dir for further analysis with BIDS-apps
-	echo "copying over corrected UNI to BIDS"
 	cp ${unicort_UNIdir}/${subject_id}/${session_id}/anat/m${subject_id}_${session_id}_acq-UNIDENT1_T1w.nii ${BIDS_dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_acq-UNIDENT1corrected_T1w.nii
-	echo "gzipping"
 	gzip ${BIDS_dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_acq-UNIDENT1corrected_T1w.nii
 	#Make sure there is a matching json file
 	cp ${BIDS_dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_acq-UNIDENT1_T1w.json ${BIDS_dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_acq-UNIDENT1corrected_T1w.json  	
