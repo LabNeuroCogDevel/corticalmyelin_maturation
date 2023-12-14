@@ -27,7 +27,7 @@ for subject_id in $(cat $participant_list); do
    #Launch job via sbatch
 	sbatch \
       -J "${subject_id}-fsbids-7.4.1" \
-      --time 60:00:00 \
+      --time 48:00:00 \
       -p RM-shared \
       --nodes 1 \
       --ntasks-per-node 1 \
@@ -35,6 +35,4 @@ for subject_id in $(cat $participant_list); do
       -e "${subject_id}-freesurfer7.4.1.e" \
       --export="ALL,SUBJECT_ID=$subject_id,ACQ=$acq_label,BIDS_DIR=$bids_dir,FS_DIR=$freesurfer_dir,FS_SIF=$freesurfer_sif,LIC=$license" \
       "$script_dir/longitudinal_freesurfer_call.sh"
-
-	break
 done	
