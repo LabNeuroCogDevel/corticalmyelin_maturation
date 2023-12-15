@@ -5,7 +5,7 @@ script_name=$0
 
 usage() {
         cat << EOF >&2
-Usage: $script_name [-s] [-a] [-b] [-f] [-c] [-l] [-r]
+Usage: $script_name [-s] [-a] [-b] [-f] [-c] [-l] [-r] [-n]
 
 -s <subject_id>: The subject identifier. This is the top-level BIDS sub-id
 -a <acquisition_label>: If the input BIDS dataset contains multiple _T1w images from different acquisitions, the BIDS -acq-<acquisition_label> label can be supplied to specify which T1w image to freesurfer. Optional argument 
@@ -14,6 +14,7 @@ Usage: $script_name [-s] [-a] [-b] [-f] [-c] [-l] [-r]
 -c <freesurfer_sif>: Full path to the singularity SIF container with the freesurfer bids-app
 -l <freesurfer_license>: Full path to a freesurfer license.txt
 -r <rerun>: If freesurfer output already exists for this <subject_id>, should it be rerun? Setting rerun to TRUE will delete all subject-specific output directories in <freesurfer_directory> to enable a rerun. Defaults to FALSE
+-n <cores>: The number of cores/CPUs available for running freesurfer-bids. Defaults to 1
 EOF
 
         exit 1
@@ -26,8 +27,9 @@ freesurfer_sif=${FS_SIF:-false}
 freesurfer_license=${LIC:-false}
 acquisition_label=${ACQ:-FALSE}
 rerun=${RERUN:-FALSE}
+cores=${CORES:-1}
 
-while getopts "s:a:b:f:c:l:r:" opt; do
+while getopts "s:a:b:f:c:l:r:n:" opt; do
         case $opt in 
                 (s) subject_id=$OPTARG;;
 		(a) acquisition_label=$OPTARG;;
@@ -36,6 +38,7 @@ while getopts "s:a:b:f:c:l:r:" opt; do
                 (c) freesurfer_sif=$OPTARG;;
                 (l) freesurfer_license=$OPTARG;;
 		(r) rerun=$OPTARG;;
+		(n) cores=$OPTARG;;
                  *) usage;;
         esac
 
@@ -72,9 +75,9 @@ fi
 # Singularity call to the bids-app
 ## typical call
 if [[ ${acquisition_label} == "FALSE" ]] ; then
-	singularity run -B ${bids_dir}:/BIDS -B ${freesurfer_dir}:/Freesurfer_output -B ${freesurfer_license}:/license.txt $freesurfer_sif /BIDS /Freesurfer_output participant --participant_label ${subject_id} --license_file /license.txt --stages all --steps {cross-sectional,template,longitudinal} --multiple_sessions longitudinal --skip_bids_validator
+	singularity run -B ${bids_dir}:/BIDS -B ${freesurfer_dir}:/Freesurfer_output -B ${freesurfer_license}:/license.txt $freesurfer_sif /BIDS /Freesurfer_output participant --participant_label ${subject_id} --license_file /license.txt --stages all --steps {cross-sectional,template,longitudinal} --multiple_sessions longitudinal --skip_bids_validator --n_cpus ${cores}
 fi
 ## specialized call to specify a BIDS T1w acquisition label
 if [[ ${acquisition_label} != "FALSE" ]] ; then
-	singularity run -B ${bids_dir}:/BIDS -B ${freesurfer_dir}:/Freesurfer_output -B ${freesurfer_license}:/license.txt $freesurfer_sif /BIDS /Freesurfer_output participant --participant_label ${subject_id} --acquisition_label ${acquisition_label} --license_file /license.txt --stages all --steps {cross-sectional,template,longitudinal} --multiple_sessions longitudinal --skip_bids_validator
+	singularity run -B ${bids_dir}:/BIDS -B ${freesurfer_dir}:/Freesurfer_output -B ${freesurfer_license}:/license.txt $freesurfer_sif /BIDS /Freesurfer_output participant --participant_label ${subject_id} --acquisition_label ${acquisition_label} --license_file /license.txt --stages all --steps {cross-sectional,template,longitudinal} --multiple_sessions longitudinal --skip_bids_validator --n_cpus ${cores}
 fi
