@@ -9,7 +9,7 @@ freesurfer_dir=${project_dir}/BIDS/derivatives/freesurfer7.4.1_long
 freesurfer_sif=${project_dir}/software/freesurfer-7.4.1.sif
 license=${project_dir}/software/license.txt
 acq_label=UNIDENT1corrected
-cores=4
+cores=2
 export bids_dir freesurfer_dir freesurfer_sif license acq_label cores
 
 script_dir="$(cd "$(dirname "$0")"||:; pwd)"
@@ -36,5 +36,4 @@ for subject_id in $(cat $participant_list); do
       -e "${subject_id}-freesurfer7.4.1.e" \
       --export="ALL,SUBJECT_ID=$subject_id,ACQ=$acq_label,BIDS_DIR=$bids_dir,FS_DIR=$freesurfer_dir,FS_SIF=$freesurfer_sif,LIC=$license,CORES=$cores" \
       "$script_dir/longitudinal_freesurfer_call.sh"
-break
 done	
