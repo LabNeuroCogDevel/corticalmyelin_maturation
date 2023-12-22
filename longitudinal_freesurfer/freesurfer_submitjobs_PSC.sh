@@ -25,6 +25,7 @@ for subject_id in $(cat $participant_list); do
    #Don't submit this subject's job if its already running
    squeue |grep "${subject_id}-fsbids-7.4.1" && continue
 
+   if ! [[ -d ${freesurfer_dir}/${subject_id} ]]; then
    #Launch job via sbatch
 	sbatch \
       -J "${subject_id}-fsbids-7.4.1" \
@@ -36,4 +37,5 @@ for subject_id in $(cat $participant_list); do
       -e "${subject_id}-freesurfer7.4.1.e" \
       --export="ALL,SUBJECT_ID=$subject_id,ACQ=$acq_label,BIDS_DIR=$bids_dir,FS_DIR=$freesurfer_dir,FS_SIF=$freesurfer_sif,LIC=$license,CORES=$cores" \
       "$script_dir/longitudinal_freesurfer_call.sh"
+fi
 done	
