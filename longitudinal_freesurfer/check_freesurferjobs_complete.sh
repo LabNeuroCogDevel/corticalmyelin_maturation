@@ -4,9 +4,12 @@
 
 project_dir=/ocean/projects/soc230004p/shared/datasets/7TBrainMech
 freesurfer_dir=${project_dir}/BIDS/derivatives/freesurfer7.4.1_long
-subseslist=${project_dir}/sample_info/7T_CuBIDS_subses_list.txt
+subseslist=${project_dir}/sample_info/7T_freesurfer_subses_list.txt
 
-touch ${freesurfer_dir}/longitudinal_freesurfer_complete.txt
+if [[ -f ${freesurfer_dir}/longitudinal_freesurfer_complete.txt ]]; then
+	rm ${freesurfer_dir}/longitudinal_freesurfer_complete.txt
+	touch ${freesurfer_dir}/longitudinal_freesurfer_complete.txt
+fi
 
 while read line ; do
 	subject_id=$(echo $line | awk '{print $1}')
