@@ -16,10 +16,10 @@ runargs=(
 	--verbose #verbose, turn on python parseltongue
 	--data-dir ${project_dir}/software/abagen/microarray #download donor expression data to here
 	--n-proc 6 #use one processor per donor to download the AHBA data
-        --probe-selection diff_stability #use the default probe selection method (differential stability); when multiples probes are available for a give gene, choose the probe with the most similar spatial patterns of expression across the 6 donors
+	--probe-selection rnaseq #select the probe with the highest correlation to rnaseq data
 	--lr_mirror bidirectional #mirror microarray expression samples across hemispheres to increase likelihood of mapping to regions
-	--missing centroids #if there are regions where all donors are missing data (based on the specified tolerance), this approach will assign expression values of the tissue samples falling closest to the centroid of that region for each donor, and use a weighted average (inverse distance) of matches samples across donors 
-         --norm-all #normalizing across matched samples only should be set to false (i.e., the norm-all flag should be turned on) when using missing so that the full range of samples can be surveyed for filling in missing parcels, not just samples that were already matched to regions	
+	--missing interpolate #assign nodes in missing regions the nearest tissue sample and create a weighted average across samples (based on inverse distance); interpolation is done independently for every donor for each region they are missing
+        --norm-all #normalizing across matched samples only should be set to false (i.e., the norm-all flag should be turned on) when using missing so that the full range of samples can be surveyed for filling in missing parcels, not just samples that were already matched to regions	
 	--tolerance 2 #use the default tolerance of 2 standard deviations for matching tissue samples to regions; if samples are greater than 2 SDs away from the mean matched distance they are ignored
 	--sample-norm scaled_robust_sigmoid #method to use for within-sample, across-gene normalization for each donor and sample
 	--gene-norm scaled_robust_sigmoid #method to use to normalize gene-specific expression values across all samples within a donor 
@@ -34,3 +34,6 @@ abagen "${runargs[@]}" ${atlas_dir}/glasser_space-fsaverage5_den-10k_desc-atlas_
 
 # Call abagen via python to generate and save out a report using the parameters specified above
 python generate_abagen_report.py
+
+# Convert the gene expression csv file to a parquet
+python abagen_to_parquet.py
