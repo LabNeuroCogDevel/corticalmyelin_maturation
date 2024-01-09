@@ -12,7 +12,7 @@ for gene in MBP OLIG1 OLIG2 MAG MOG SLC17A6; do
 	#create dense gene expression lh gifti
 	python $SCRIPT_DIR/create_AHBAmagicc_genemap.py $gene $OUTPUT_DIR
 	#create dense gene expression cifti (with lh data only)
-	wb_command -cifti-create-dense-scalar -left-metric $OUTPUT_DIR/source-magicc_desc-${gene}expression_space-fsLR_den-32k.func.gii $OUTPUT_DIR/source-magicc_desc-${gene}expression_space-fsLR_den-32k.dscalar.nii
+	wb_command -cifti-create-dense-scalar -left-metric $OUTPUT_DIR/source-magicc_desc-${gene}expression_space-fsLR_den-32k_hemi-L.func.gii $OUTPUT_DIR/source-magicc_desc-${gene}expression_space-fsLR_den-32k.dscalar.nii
 	#parcellate the dense expression map 
 	wb_command -cifti-parcellate $OUTPUT_DIR/source-magicc_desc-${gene}expression_space-fsLR_den-32k.dscalar.nii /Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser_space-fsLR_den-32k_desc-atlas.dlabel.nii COLUMN $OUTPUT_DIR/source-magicc_desc-${gene}expression_space-fsLR_den-32k.pscalar.nii -legacy-mode 
 done

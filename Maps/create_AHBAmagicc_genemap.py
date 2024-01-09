@@ -26,5 +26,5 @@ data_lh = nib.gifti.gifti.GiftiImage()
 data_lh.add_gifti_data_array(nib.gifti.gifti.GiftiDataArray(data = mygene_expression_masked))
 data_lh.meta['AnatomicalStructurePrimary'] = 'CortexLeft'
 outputpath = sys.argv[2]
-fname_lh = 'source-magicc_desc-{0}expression_space-fsLR_den-32k.func.gii'.format(mygene_name)
+fname_lh = 'source-magicc_desc-{0}expression_space-fsLR_den-32k_hemi-L.func.gii'.format(mygene_name)
 nib.save(data_lh, outputpath + "/" + fname_lh)
