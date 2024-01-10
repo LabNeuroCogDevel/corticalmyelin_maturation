@@ -6,8 +6,8 @@
 R1dir=/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/R1maps
 
 #Directories on PSC
-psc_destdir=/ocean/projects/soc230004p/shared/datasets/7TBrainMech/BIDS/derivatives/R1maps
+psc_destdir=/ocean/projects/soc230004p/shared/datasets/7TBrainMech/BIDS/derivatives
 psc="bridges2.psc.edu"
 
 #Bring R1 data to the PSC
-rsync --size-only -avhi ${R1dir} $psc:${psc_destdirdd}
+rsync  --size-only -avhi ${R1dir} $psc:${psc_destdir}
