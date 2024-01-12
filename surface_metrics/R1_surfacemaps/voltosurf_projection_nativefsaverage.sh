@@ -23,16 +23,16 @@ EOF
 	exit 1
 }
 
-subject_id=false
-moving_image=false
-input_image=false
-freesurfer_dir=false
-freesurfer_sif=false
-registration_dof=6
-freesurfer_license=false
-projection_fraction=0.5
-projection_distance=false
-smoothing_fwhm=false
+subject_id=${SUBJECT_ID:-false}
+moving_image=${MOVING_IMAGE:-false}
+input_image=${INPUT_IMAGE:-false}
+freesurfer_dir=${FS_DIR:-false}
+freesurfer_sif=${FS_SIF:-false}
+registration_dof=${REG_DOF:-6}
+freesurfer_license=${LIC:-false}
+projection_fraction=${PROJ_FRAC:-0.5}
+projection_distance=${PROJ_DIST:-false}
+smoothing_fwhm=${SMOOTH:-false}
 
 while getopts "s:m:i:f:c:r:l:p:d:u:" opt; do
 	case $opt in 
