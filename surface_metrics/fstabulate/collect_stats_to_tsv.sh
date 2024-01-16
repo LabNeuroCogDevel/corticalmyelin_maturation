@@ -106,10 +106,10 @@ subject_fs=${SUBJECTS_DIR}/${subject_id}
 # Scripts and data dirs from freesurfer_tabulate repo
 SCRIPT_DIR=$(dirname "$script_name")
 SCRIPT_DIR=$(realpath $SCRIPT_DIR) #expand full path of script dir so we can bind full (instead of relative) path to the container
-annots_dir=${SCRIPT_DIR}/annots
-parcstats_to_tsv_script=${SCRIPT_DIR}/compile_freesurfer_parcellation_stats.py
-to_cifti_script=${SCRIPT_DIR}/vertex_measures_to_cifti.py
-metadata_to_bids_script=${SCRIPT_DIR}/seg_and_metadata_to_bids.py
+annots_dir=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/annots
+parcstats_to_tsv_script=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/compile_freesurfer_parcellation_stats.py
+to_cifti_script=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/vertex_measures_to_cifti.py
+metadata_to_bids_script=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/seg_and_metadata_to_bids.py
 
 # Set singularity params
 workdir=${subject_fs}
@@ -126,52 +126,6 @@ neuromaps_singularity_cmd="singularity exec --containall --writable-tmpfs -B ${S
 parcs=${parcellations//,/ }
 # Atlases that come from freesurfer and are already in fsnative
 native_parcs="aparc.DKTatlas aparc.a2009s aparc BA_exvivo"
-
-# Perform the mapping from fsaverage to native
-for hemi in lh rh; do
-    for parc in ${parcs}; do
-            annot_name=${hemi}.${parc}.annot
-            fsaverage_annot=${annots_dir}/${annot_name}
-            native_annot=${subject_fs}/label/${annot_name}
-            stats_file=${subject_fs}/stats/${annot_name/.annot/.stats}
-
-            ${singularity_cmd} \
-                mri_surf2surf \
-                --srcsubject fsaverage \
-                --trgsubject ${subject_id} \
-                --hemi ${hemi} \
-                --sval-annot ${fsaverage_annot} \
-                --tval ${native_annot}
-    done
-done
-
-# Run qcache on this person to get the mgh files
-if [[ $longitudinal_fs == TRUE ]]; then
-	${singularity_cmd} recon-all -long ${cross_sectional_id} ${base_id} -qcache
-else
-	${singularity_cmd} recon-all -s ${subject_id} -qcache
-fi
-
-# CUBIC-specific stuff needed for LGI to be run outside of a container
-# NOTE: this is not done with a container because it requires matlab :(
-if [[ ${compute_lgi} == TRUE ]]; then
-	module load freesurfer/7.2.0
-	export SUBJECTS_DIR=${fs_root}
-	subject_fs=${SUBJECTS_DIR}/${subject_id}
-	HAS_LGI=1
-	set +e
-	if [[ $longitudinal_fs == TRUE ]]; then
-		recon-all -long ${cross_sectional_id} ${base_id} -localGI
-	else
-		recon-all -s ${subject_id} -localGI
-	fi
-	# It may fail the first time, so try running it again:
-	if [[ $? -gt 0 ]]; then
-    	HAS_LGI=0
-    	find ${subject_fs} -name '*pial_lgi' -delete
-	fi
-	set -e
-fi
 
 # create the .stats files for each annot file
 for hemi in lh rh; do
@@ -225,8 +179,6 @@ if [[ ${compute_lgi} == TRUE ]]; then #indicate whether LGI calculation was atte
 fi	
 ${neuromaps_singularity_cmd} \
 python ${parcstats_to_tsv_script} ${subject_id} ${native_parcs} ${parcs} #parcellation stats tsv
-${neuromaps_singularity_cmd} \
-python ${metadata_to_bids_script} ${subject_id} #metadata
 
 # Get these into MGH
 if [[ ${compute_lgi} == TRUE ]] && [[ $HAS_LGI -gt 0 ]]; then
@@ -260,10 +212,6 @@ ${neuromaps_singularity_cmd} \
 # Remove the malformed data from surf/
 rm -fv ${subject_fs}/surf/*malformed*
 
-# gather fsaverage mgh files
-mkdir -p "${output_dir}/${subject_id}_fsaverage"
-mv ${subject_fs}/surf/*fsaverage*mgh "${output_dir}/${subject_id}_fsaverage/"
-
 # gather the fslr cifti files
 mkdir -p "${output_dir}/${subject_id}_fsLR_den-164k"
 mv ${subject_fs}/surf/*.nii "${output_dir}/${subject_id}_fsLR_den-164k/"
@@ -277,13 +225,7 @@ mv ${SUBJECTS_DIR}/*brainmeasures.* ${output_dir}/
 # Remove temp files from neuromaps
 rm -rf ${subject_fs}/trash/*
 
-# Compress the subject freesurfer directory and move it to outputs
-cd "${SUBJECTS_DIR}"
-tar cvfJ ${subject_id}_freesurfer.tar.xz ${subject_id}
-mv ${subject_id}_freesurfer.tar.xz ${output_dir}
-
 cd ${output_dir}
-tar cvfJ ${subject_id}_fsaverage.tar.xz ${subject_id}_fsaverage
 tar cvfJ ${subject_id}_fsLR_den-164k.tar.xz ${subject_id}_fsLR_den-164k
 rm -rf ${subject_id}_fsaverage ${subject_id}_fsLR_den-164k
 
