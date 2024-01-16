@@ -1,0 +1,9 @@
+## Updates to make
+# add command line argument - flags, check for missing arguments, and extended usage [X]
+# take in a comma separated list of metrics to collect_stats_to_tsv [X]
+# make compile_freesurfer_parcellation_stats.py compatible with user-specified metrics [X]
+# take in a comma separated list of aparcs [X]
+# make freesurfer tabulate compatible with longitudinal freesurfer processing -- update qcache call to reconall -long cross-subject basesubject -qcache [X] and update parcellation stats python script to record correct session & output to the longitudinal dir [X]
+# make LGI processing a special option [X]
+# small bug fixes: fix code to write out g-w.pct ciftis due to mid file mgh and to include both sub and session id in regionsurfacestats.tsv filename 
+
