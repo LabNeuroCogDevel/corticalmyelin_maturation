@@ -6,11 +6,12 @@ import subprocess
 from collections import defaultdict
 from neuromaps.transforms import fsaverage_to_fslr
 
+vertices = os.getenv("vertices")
+
 input_dir = Path(sys.argv[1])
 surfs_dir = input_dir / "surf"
 malformed_giftis = list(map(str, surfs_dir.rglob("*.malformed.*gii")))
 print(f"Found {len(malformed_giftis)} giftis to merge")
-#print("\n" + "\n".join(malformed_giftis))
 
 to_merge = defaultdict(list)
 
@@ -19,7 +20,7 @@ for mgii in malformed_giftis:
         "rh.", "").replace(
         "lh.", "").replace(
         ".malformed", "").replace(
-        ".fsaverage.", ".fsLR_den-32k.").replace(
+        ".fsaverage.", ".fsLR_den-{0}.".format(vertices)).replace(
         ".shape.gii", ".dscalar.nii")
     out_file = str(surfs_dir / (input_dir.name + "_" + Path(cifti_name).name))
     to_merge[out_file].append(mgii)
@@ -28,14 +29,14 @@ for mgii in malformed_giftis:
 def cifti_from_giftis(rh_gii, lh_gii, cifti_name):
     l_fslr = fsaverage_to_fslr(
         lh_gii,
-        target_density="32k", hemi="L", method="linear")
+        target_density=vertices, hemi="L", method="linear")
     r_fslr = fsaverage_to_fslr(
         rh_gii,
-        target_density="32k", hemi="R", method="linear")
+        target_density=vertices, hemi="R", method="linear")
 
     wd = Path(cifti_name)
-    tmp_rh = str(wd.parent / ("rh._TMP_" + "32k_fslr.shape.gii"))
-    tmp_lh = str(wd.parent / ("lh._TMP_" + "32k_fslr.shape.gii"))
+    tmp_rh = str(wd.parent / ("rh._TMP_" + "{0}_fslr.shape.gii".format(vertices)))
+    tmp_lh = str(wd.parent / ("lh._TMP_" + "{0}_fslr.shape.gii".format(vertices)))
 
     l_fslr[0].to_filename(tmp_lh)
     r_fslr[0].to_filename(tmp_rh)
