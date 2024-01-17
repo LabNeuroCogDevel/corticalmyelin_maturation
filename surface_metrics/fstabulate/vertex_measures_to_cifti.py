@@ -19,7 +19,7 @@ for mgii in malformed_giftis:
         "rh.", "").replace(
         "lh.", "").replace(
         ".malformed", "").replace(
-        ".fsaverage.", ".fsLR_den-164k.").replace(
+        ".fsaverage.", ".fsLR_den-32k.").replace(
         ".shape.gii", ".dscalar.nii")
     out_file = str(surfs_dir / (input_dir.name + "_" + Path(cifti_name).name))
     to_merge[out_file].append(mgii)
@@ -28,14 +28,14 @@ for mgii in malformed_giftis:
 def cifti_from_giftis(rh_gii, lh_gii, cifti_name):
     l_fslr = fsaverage_to_fslr(
         lh_gii,
-        target_density="164k", hemi="L", method="linear")
+        target_density="32k", hemi="L", method="linear")
     r_fslr = fsaverage_to_fslr(
         rh_gii,
-        target_density="164k", hemi="R", method="linear")
+        target_density="32k", hemi="R", method="linear")
 
     wd = Path(cifti_name)
-    tmp_rh = str(wd.parent / ("rh._TMP_" + "164k_fslr.shape.gii"))
-    tmp_lh = str(wd.parent / ("lh._TMP_" + "164k_fslr.shape.gii"))
+    tmp_rh = str(wd.parent / ("rh._TMP_" + "32k_fslr.shape.gii"))
+    tmp_lh = str(wd.parent / ("lh._TMP_" + "32k_fslr.shape.gii"))
 
     l_fslr[0].to_filename(tmp_lh)
     r_fslr[0].to_filename(tmp_rh)
