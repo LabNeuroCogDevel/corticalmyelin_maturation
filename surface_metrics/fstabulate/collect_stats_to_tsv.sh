@@ -125,7 +125,7 @@ if [[ ${metrics} == *"lgi"* ]]; then
 fi
 
 # Set up FreeSurfer environment 
-source ${FREESURFER_HOME}/SetUpFreeSurfer.sh
+#source ${FREESURFER_HOME}/SetUpFreeSurfer.sh
 export SUBJECTS_DIR=${fs_root}
 subject_fs=${SUBJECTS_DIR}/${subject_id}
 
@@ -139,12 +139,12 @@ metadata_to_bids_script=${SCRIPT_DIR}/seg_and_metadata_to_bids.py
 
 # Set singularity params
 workdir=${subject_fs}
-export SINGULARITYENV_OMP_NUM_THREADS=1
-export SINGULARITYENV_NSLOTS=1
-export SINGULARITYENV_ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
-export SINGULARITYENV_SUBJECTS_DIR=${SUBJECTS_DIR}
-export SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
-export SINGULARITYENV_NEUROMAPS_DATA=${SUBJECTS_DIR}/${subject_id}/trash # we're using the subject's trash directory as a temp dir for neuromaps data
+export APPTAINERENV_OMP_NUM_THREADS=1
+export APPTAINERENV_NSLOTS=1
+export APPTAINERENV_ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+export APPTAINERENV_SUBJECTS_DIR=${SUBJECTS_DIR}
+export APPTAINER_TMPDIR=${SINGULARITY_TMPDIR}
+export APPTAINERENV_NEUROMAPS_DATA=${SUBJECTS_DIR}/${subject_id}/trash # we're using the subject's trash directory as a temp dir for neuromaps data
 singularity_cmd="singularity exec --containall --writable-tmpfs -B ${SUBJECTS_DIR} -B ${annots_dir} -B ${freesurfer_license}:/opt/freesurfer/license.txt ${freesurfer_sif}"
 neuromaps_singularity_cmd="singularity exec --containall --writable-tmpfs -B ${SUBJECTS_DIR} -B ${SCRIPT_DIR} ${neuromaps_sif}"
 
@@ -227,12 +227,12 @@ for hemi in lh rh; do
 done
 
 # Create the tsvs for the regional stats from the parcellations
-export SINGULARITYENV_anatomical_stats=${anatomical_stats} #export anatomical stats flag as singularity environment variable to be accessible to parcstats_to_tsv_script
+export APPTAINERENV_anatomical_stats=${anatomical_stats} #export anatomical stats flag as singularity environment variable to be accessible to parcstats_to_tsv_script
 if [[ $metrics != "none" ]]; then #export user-defined metrics as a singularity environment variable to be accessible in parcstats_to_tsv_script
-	export SINGULARITYENV_user_measures=${user_measures}
+	export APPTAINERENV_user_measures=${user_measures}
 fi
 if [[ ${compute_lgi} == TRUE ]]; then #indicate whether LGI calculation was attempted as a singularity environment variable 
-	export SINGULARITYENV_LGI=${compute_lgi}
+	export APPTAINERENV_LGI=${compute_lgi}
 fi	
 ${neuromaps_singularity_cmd} \
 python ${parcstats_to_tsv_script} ${subject_id} ${native_parcs} ${parcs} #parcellation stats tsv
