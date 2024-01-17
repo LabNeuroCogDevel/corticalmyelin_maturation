@@ -4,11 +4,11 @@ script_name=$0
 
 # A script that will calculate desired surface metrics for a list of surface atlases
 # and will grab subject metadata. Creates stat tsv and json files of the results.
-# Also creates cifti dscalar.nii files for desired surface metrics at 32k resolution.
+# Also creates cifti dscalar.nii files for desired surface metrics at requested vertex density.
 
 usage() {
 	cat << EOF >&2
-Usage: $script_name [-s] [-f] [-c] [-n] [-l] [-o] [-m] [-p] [-d] [-a]
+Usage: $script_name [-s] [-f] [-c] [-n] [-l] [-o] [-m] [-p] [-d] [-a] [-v]
 
 -s <subject_id>: The subject identifier. This is the subject's directory name in the freesurfer 
 SUBJECTS_DIR (i.e., the identifier used with --s in freesurfer commands) (positional arg)
@@ -50,6 +50,9 @@ If left blank, defaults to all
 files and ciftis if user-supplied -m <metrics> are also requested. Must be a value of "true" or 
 "false" (defaults to true) 
 
+-v <vertices>: The vertex density to write out cifti surface metrics at. Can be 32k or 164k 
+(defaults to 32k)
+
 EOF
 
 	exit 1
@@ -65,10 +68,10 @@ metrics=none # user can specify a list of additional metrics, but defaults to no
 parcellations=AAL,CC200,CC400,glasser,gordon333dil,HOCPATh25,Juelich,PALS_B12_Brodmann,Schaefer2018_1000Parcels_17Networks_order,Schaefer2018_1000Parcels_7Networks_order,Schaefer2018_100Parcels_17Networks_order,Schaefer2018_100Parcels_7Networks_order,Schaefer2018_200Parcels_17Networks_order,Schaefer2018_200Parcels_7Networks_order,Schaefer2018_300Parcels_17Networks_order,Schaefer2018_300Parcels_7Networks_order,Schaefer2018_400Parcels_17Networks_order,Schaefer2018_400Parcels_7Networks_order,Schaefer2018_500Parcels_17Networks_order,Schaefer2018_500Parcels_7Networks_order,Schaefer2018_600Parcels_17Networks_order,Schaefer2018_600Parcels_7Networks_order,Schaefer2018_700Parcels_17Networks_order,Schaefer2018_700Parcels_7Networks_order,Schaefer2018_800Parcels_17Networks_order,Schaefer2018_800Parcels_7Networks_order,Schaefer2018_900Parcels_17Networks_order,Schaefer2018_900Parcels_7Networks_order,Slab,Yeo2011_17Networks_N1000,Yeo2011_7Networks_N1000 # user can specify a list of parcellations, but defaults to all
 native_parcellations=aparc.DKTatlas,aparc.a2009s,aparc,BA_exvivo # user can specify a list of fs native parcellations, but defaults to all
 anatomical_stats=true # user can toggle mris_anatomical stats on or off, but it is run by default
+vertices=32k # user can request 32k or 164k, but defaults to the lower resolution
 
 
-
-while getopts "s:f:c:n:l:o:m:p:d:a:" opt; do
+while getopts "s:f:c:n:l:o:m:p:d:a:v:" opt; do
 	case $opt in 
 		(s) subject_id=$OPTARG;;
 		(f) freesurfer_dir=$OPTARG;;
@@ -80,6 +83,7 @@ while getopts "s:f:c:n:l:o:m:p:d:a:" opt; do
 		(p) parcellations=$OPTARG;;
 		(d) native_parcellations=$OPTARG;;
 		(a) anatomical_stats=$OPTARG;;
+		(v) vertices=$OPTARG;;
 		 *) usage;;
 	esac
 
@@ -294,7 +298,8 @@ if [[ $metrics != "none" ]]; then
 	done
 fi
 
-# Finally, use neuromaps to go from fsaverage to fsLR32k
+# Finally, use neuromaps to go from fsaverage to fsLR
+export APPTAINERENV_vertices=${vertices} #export requested cifti vertex density as singularity environment variable to be accessible to to_cifti_script
 ${neuromaps_singularity_cmd} \
   python ${to_cifti_script} \
   ${subject_fs}
@@ -320,8 +325,8 @@ fi
 rm ${output_dir}/${subject_id}_fsaverage/*fwhm* #not saving smoothed surface metrics to the fsaverage tar ball
 
 # gather the fslr cifti files
-mkdir -p "${output_dir}/${subject_id}_fsLR_den-32k"
-mv ${subject_fs}/surf/*.nii "${output_dir}/${subject_id}_fsLR_den-32k/"
+mkdir -p "${output_dir}/${subject_id}_fsLR_den-$vertices"
+mv ${subject_fs}/surf/*.nii "${output_dir}/${subject_id}_fsLR_den-$vertices/"
 
 # Move the surface stats tsv
 mv ${subject_fs}/stats/*regionsurfacestats.tsv ${output_dir}/
@@ -334,6 +339,6 @@ rm -rf ${subject_fs}/trash/*
 
 cd ${output_dir}
 tar cvfJ ${subject_id}_fsaverage.tar.xz ${subject_id}_fsaverage
-tar cvfJ ${subject_id}_fsLR_den-32k.tar.xz ${subject_id}_fsLR_den-32k
-rm -rf ${subject_id}_fsaverage ${subject_id}_fsLR_den-32k
+tar cvfJ ${subject_id}_fsLR_den-$vertices.tar.xz ${subject_id}_fsLR_den-$vertices
+rm -rf ${subject_id}_fsaverage ${subject_id}_fsLR_den-$vertices
 
