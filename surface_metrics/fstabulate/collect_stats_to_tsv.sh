@@ -109,6 +109,15 @@ if [[ $anatomical_stats != "true" ]] && [[ $anatomical_stats != "false" ]] ; the
 	exit 1
 fi
 
+if [[ $anatomical_stats == "false" ]] && [[ $metrics == "none" ]] ; then
+	echo " "
+	echo "anatomical stats not requested and no user-defined metrics supplied, nothing to do. See usage"
+	echo " "
+	echo " "
+	usage
+	exit 1
+fi
+
 #set -e -u -x
 
 # Get input for this run
@@ -268,20 +277,22 @@ if [[ $anatomical_stats == "true" ]] ; then
 	done
 fi
 
-user_measures=${metrics//,/ }
-user_measures=${user_measures//"pial_lgi"/ } #remove pial_lgi from this list, handle it as a special case below
-for hemi in lh rh; do
-	for measure in $user_measures; do
-		for mgh_surf in ${hemi}*${measure}*fsaverage.mgh; do
-	    		if [[ $mgh_surf != *"fwhm"* ]]; then #not resampling all smoothed data to cifti. smooth output with -cifti-smoothing
-				${singularity_cmd} mris_convert \
-            			-c ${PWD}/${mgh_surf} \
-				${SUBJECTS_DIR}/fsaverage/surf/${hemi}.white \
-            			${PWD}/${mgh_surf/%.mgh/.malformed.shape.gii}
-			fi
+if [[ $metrics != "none" ]]; then
+	user_measures=${metrics//,/ }
+	user_measures=${user_measures//"pial_lgi"/ } #remove pial_lgi from this list, handle it as a special case below
+	for hemi in lh rh; do
+		for measure in $user_measures; do
+			for mgh_surf in ${hemi}*${measure}*fsaverage.mgh; do
+	    			if [[ $mgh_surf != *"fwhm"* ]]; then #not resampling all smoothed data to cifti. smooth output with -cifti-smoothing
+					${singularity_cmd} mris_convert \
+            				-c ${PWD}/${mgh_surf} \
+					${SUBJECTS_DIR}/fsaverage/surf/${hemi}.white \
+            				${PWD}/${mgh_surf/%.mgh/.malformed.shape.gii}
+				fi
+			done
 		done
 	done
-done
+fi
 
 # Finally, use neuromaps to go from fsaverage to fsLR32k
 ${neuromaps_singularity_cmd} \
@@ -300,10 +311,12 @@ if [[ $anatomical_stats == "true" ]] ; then
 	cp ${subject_fs}/surf/*thickness*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
 	cp ${subject_fs}/surf/*volume*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
 fi
-user_measures=${metrics//,/ }
-for metric in $user_measures; do
-	cp ${subject_fs}/surf/*$metric*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
-done
+if [[ $metrics != "none" ]]; then
+	user_measures=${metrics//,/ }
+	for metric in $user_measures; do
+		cp ${subject_fs}/surf/*$metric*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
+	done
+fi
 rm ${output_dir}/${subject_id}_fsaverage/*fwhm* #not saving smoothed surface metrics to the fsaverage tar ball
 
 # gather the fslr cifti files
