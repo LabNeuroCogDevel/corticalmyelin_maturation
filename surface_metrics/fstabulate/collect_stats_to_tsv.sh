@@ -255,7 +255,7 @@ cd ${subject_fs}/surf
 
 if [[ $anatomical_stats == "true" ]] ; then
 	for hemi in lh rh; do
-    		for mgh_surf in ${hemi}*fsaverage.mgh; do
+    		for mgh_surf in ${hemi}*area*fsaverage.mgh ${hemi}*curv*fsaverage.mgh ${hemi}*sulc*fsaverage.mgh ${hemi}*thickness*fsaverage.mgh ${hemi}*volume*fsaverage.mgh; do
 	    		if [[ $mgh_surf != *"fwhm"* ]]; then #not resampling all smoothed data to cifti. smooth output with -cifti-smoothing
         			${singularity_cmd} mris_convert \
             			-c ${PWD}/${mgh_surf} \
@@ -266,22 +266,20 @@ if [[ $anatomical_stats == "true" ]] ; then
 	done
 fi
 
-if [[ $anatomical_stats == "false" ]] ; then
-	user_measures=${metrics//,/ }
-	user_measures=${user_measures//"pial_lgi"/ } #remove pial_lgi from this list, handle it as a special case below
-	for hemi in lh rh; do
-		for measure in $user_measures; do
-			for mgh_surf in ${hemi}*${measure}*fsaverage.mgh; do
-	    			if [[ $mgh_surf != *"fwhm"* ]]; then #not resampling all smoothed data to cifti. smooth output with -cifti-smoothing
-					${singularity_cmd} mris_convert \
-            				-c ${PWD}/${mgh_surf} \
-					${SUBJECTS_DIR}/fsaverage/surf/${hemi}.white \
-            				${PWD}/${mgh_surf/%.mgh/.malformed.shape.gii}
-				fi
-			done
+user_measures=${metrics//,/ }
+user_measures=${user_measures//"pial_lgi"/ } #remove pial_lgi from this list, handle it as a special case below
+for hemi in lh rh; do
+	for measure in $user_measures; do
+		for mgh_surf in ${hemi}*${measure}*fsaverage.mgh; do
+	    		if [[ $mgh_surf != *"fwhm"* ]]; then #not resampling all smoothed data to cifti. smooth output with -cifti-smoothing
+				${singularity_cmd} mris_convert \
+            			-c ${PWD}/${mgh_surf} \
+				${SUBJECTS_DIR}/fsaverage/surf/${hemi}.white \
+            			${PWD}/${mgh_surf/%.mgh/.malformed.shape.gii}
+			fi
 		done
 	done
-fi
+done
 
 # Finally, use neuromaps to go from fsaverage to fsLR164k
 ${neuromaps_singularity_cmd} \
@@ -293,8 +291,18 @@ rm -fv ${subject_fs}/surf/*malformed*
 
 # gather fsaverage mgh files
 mkdir -p "${output_dir}/${subject_id}_fsaverage"
-cp ${subject_fs}/surf/*fsaverage*mgh "${output_dir}/${subject_id}_fsaverage/"
-rm ${output_dir}/${subject_id}_fsaverage/*fwhm*
+if [[ $anatomical_stats == "true" ]] ; then
+	cp ${subject_fs}/surf/*area*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
+	cp ${subject_fs}/surf/*curv*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
+	cp ${subject_fs}/surf/*sulc*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
+	cp ${subject_fs}/surf/*thickness*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
+	cp ${subject_fs}/surf/*volume*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
+fi
+user_measures=${metrics//,/ }
+for metric in $user_measures; do
+	cp ${subject_fs}/surf/*$metric*fsaverage.mgh "${output_dir}/${subject_id}_fsaverage/"
+done
+rm ${output_dir}/${subject_id}_fsaverage/*fwhm* #not saving smoothed surface metrics to the fsaverage tar ball
 
 # gather the fslr cifti files
 mkdir -p "${output_dir}/${subject_id}_fsLR_den-164k"
