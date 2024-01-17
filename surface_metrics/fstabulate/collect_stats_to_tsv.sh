@@ -8,24 +8,24 @@ script_name=$0
 
 usage() {
 	cat << EOF >&2
-Usage: $script_name [-s] [-f] [-c] [-n] [-l] [-o] [-m] [-p]
+Usage: $script_name [-s] [-f] [-c] [-n] [-l] [-o] [-m] [-p] [-d] [-a]
 
 -s <subject_id>: The subject identifier. This is the subject's directory name in the freesurfer 
-SUBJECTS_DIR (i.e., the identifier used with --s in freesurfer commands).
+SUBJECTS_DIR (i.e., the identifier used with --s in freesurfer commands) (positional arg)
 
 -f <freesurfer_dir>: The freesurfer SUBJECTS_DIR. The directory <freesurfer_dir>/<subject_id> 
-must exist with typical freesurfer outputs mri/ surf/ label/ etc.
+must exist with typical freesurfer outputs mri/ surf/ label/ etc. (positional arg)
 
 -c <freesurfer_sif>: Full path to the singularity SIF container with freesurfer. This should 
 be the exact version of freesurfer that was used to create the data in freesurfer_dir. Can be 
-a freesurfer.sif or fmriprep.sif
+a freesurfer.sif or fmriprep.sif (positional arg)
 
 -n <neuromaps_sif>: Full path to a singularity container for neuromaps, used for the creation 
-of cifti metric files
+of cifti metric files (positional arg)
 
--l <freesurfer_license>: Full path to a freesurfer license.txt
+-l <freesurfer_license>: Full path to a freesurfer license.txt (positional arg)
 
--o <output_dir>: Path to where the output files will go
+-o <output_dir>: Path to where the output files will go (positional arg)
 
 -m <metrics>: A comma separated list of metrics to generate stats and ciftis for, in addition to 
 the metrics automatically calculated by mris_anatomical_stats (number of vertices, surface area, 
@@ -37,11 +37,19 @@ must exist as .mgh files in <freesurfer_dir>/<subject_id>/surf in the format $he
 and $hemi.<metric>.fsaverage.mgh, respectively. If no additional metrics are of interest, can 
 be left blank (defaults to none) 
 
--p <parcellations>: A comma separated list of parcellations to compute stats and ciftis with, 
-in addition to the 4 atlases that come with freesurfer and exist in fsnative (aparc.DKTatlas, 
-aparc.a2009s, aparc, BA_exvivo). Parcellations can include any of the annot files found in 
-freesurfer_tabulate/annots (e.g., glasser, Juelich, Schaefer2018_400Parcels_7Networks_order).
-Can be left blank (defaults to all)
+-p <parcellations>: A comma separated list of non-freesurfer-native parcellations to compute stats 
+for. Parcellations can include any of the annot files found in fstabulate/annots 
+(e.g., glasser, Juelich, Schaefer2018_400Parcels_7Networks_order) or can be set to "none". If
+ left blank, defaults to all
+
+-d <native_parcellations>: A comma separated list of atlases that come with freesurfer and
+exist in fsnative (aparc.DKTatlas, aparc.a2009s, aparc, BA_exvivo) or can be set to "none".
+If left blank, defaults to all
+
+-a <anatomical_stats>: Whether to run mris_anatomical_stats and output typical anatomical stats
+files and ciftis if user-supplied -m <metrics> are also requested. Must be a value of "true" or 
+"false" (defaults to true) 
+
 EOF
 
 	exit 1
@@ -55,8 +63,12 @@ freesurfer_license=false # positional argument
 output_dir=false # positional argument
 metrics=none # user can specify a list of additional metrics, but defaults to none
 parcellations=AAL,CC200,CC400,glasser,gordon333dil,HOCPATh25,Juelich,PALS_B12_Brodmann,Schaefer2018_1000Parcels_17Networks_order,Schaefer2018_1000Parcels_7Networks_order,Schaefer2018_100Parcels_17Networks_order,Schaefer2018_100Parcels_7Networks_order,Schaefer2018_200Parcels_17Networks_order,Schaefer2018_200Parcels_7Networks_order,Schaefer2018_300Parcels_17Networks_order,Schaefer2018_300Parcels_7Networks_order,Schaefer2018_400Parcels_17Networks_order,Schaefer2018_400Parcels_7Networks_order,Schaefer2018_500Parcels_17Networks_order,Schaefer2018_500Parcels_7Networks_order,Schaefer2018_600Parcels_17Networks_order,Schaefer2018_600Parcels_7Networks_order,Schaefer2018_700Parcels_17Networks_order,Schaefer2018_700Parcels_7Networks_order,Schaefer2018_800Parcels_17Networks_order,Schaefer2018_800Parcels_7Networks_order,Schaefer2018_900Parcels_17Networks_order,Schaefer2018_900Parcels_7Networks_order,Slab,Yeo2011_17Networks_N1000,Yeo2011_7Networks_N1000 # user can specify a list of parcellations, but defaults to all
+native_parcellations=aparc.DKTatlas,aparc.a2009s,aparc,BA_exvivo # user can specify a list of fs native parcellations, but defaults to all
+anatomical_stats=true # user can toggle mris_anatomical stats on or off, but it is run by default
 
-while getopts "s:f:c:n:l:o:m:p:" opt; do
+
+
+while getopts "s:f:c:n:l:o:m:p:d:a:" opt; do
 	case $opt in 
 		(s) subject_id=$OPTARG;;
 		(f) freesurfer_dir=$OPTARG;;
@@ -66,6 +78,8 @@ while getopts "s:f:c:n:l:o:m:p:" opt; do
 		(o) output_dir=$OPTARG;;
 		(m) metrics=$OPTARG;;
 		(p) parcellations=$OPTARG;;
+		(d) native_parcellations=$OPTARG;;
+		(a) anatomical_stats=$OPTARG;;
 		 *) usage;;
 	esac
 
@@ -77,7 +91,19 @@ done
 
 if [[ "$subject_id $freesurfer_dir $freesurfer_sif $neuromaps_sif $freesurfer_license $output_dir" =~ false ]] ; then
 	echo " "
-	echo "$0 call is missing a required command line argument, one of: -s -f -c -n -l -o"
+	echo "$0 call is missing a required command line argument, one of: -s -f -c -n -l -o. See usage"
+	echo " "
+	echo " "
+	echo " "
+	usage
+	exit 1
+fi
+
+if [[ $anatomical_stats != "true" ]] && [[ $anatomical_stats != "false" ]] ; then
+	echo " "
+	echo "-a must be set to true or false. See usage"
+	echo " "
+	echo " "
 	echo " "
 	usage
 	exit 1
@@ -106,10 +132,10 @@ subject_fs=${SUBJECTS_DIR}/${subject_id}
 # Scripts and data dirs from freesurfer_tabulate repo
 SCRIPT_DIR=$(dirname "$script_name")
 SCRIPT_DIR=$(realpath $SCRIPT_DIR) #expand full path of script dir so we can bind full (instead of relative) path to the container
-annots_dir=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/annots
-parcstats_to_tsv_script=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/compile_freesurfer_parcellation_stats.py
-to_cifti_script=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/vertex_measures_to_cifti.py
-metadata_to_bids_script=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/freesurfer_tabulate/seg_and_metadata_to_bids.py
+annots_dir=${SCRIPT_DIR}/annots
+parcstats_to_tsv_script=${SCRIPT_DIR}/compile_freesurfer_parcellation_stats.py
+to_cifti_script=${SCRIPT_DIR}/vertex_measures_to_cifti.py
+metadata_to_bids_script=${SCRIPT_DIR}/seg_and_metadata_to_bids.py
 
 # Set singularity params
 workdir=${subject_fs}
@@ -123,9 +149,39 @@ singularity_cmd="singularity exec --containall --writable-tmpfs -B ${SUBJECTS_DI
 neuromaps_singularity_cmd="singularity exec --containall --writable-tmpfs -B ${SUBJECTS_DIR} -B ${SCRIPT_DIR} ${neuromaps_sif}"
 
 # Special atlases that we need to warp from fsaverage to native
+if [[ $parcellations == "none" ]]; then
+	parcellations= 
+fi
 parcs=${parcellations//,/ }
 # Atlases that come from freesurfer and are already in fsnative
-native_parcs="aparc.DKTatlas aparc.a2009s aparc BA_exvivo"
+if [[ $native_parcellations == "none" ]]; then
+	native_parcellations= 
+fi
+native_parcs=${native_parcellations//,/ }
+
+# Perform the mapping from fsaverage to native
+for hemi in lh rh; do
+    for parc in ${parcs}; do
+            annot_name=${hemi}.${parc}.annot
+            fsaverage_annot=${annots_dir}/${annot_name}
+            native_annot=${subject_fs}/label/${annot_name}
+
+            ${singularity_cmd} \
+                mri_surf2surf \
+                --srcsubject fsaverage \
+                --trgsubject ${subject_id} \
+                --hemi ${hemi} \
+                --sval-annot ${fsaverage_annot} \
+                --tval ${native_annot}
+    done
+done
+
+# Run qcache on this person to get the mgh files
+if [[ $longitudinal_fs == TRUE ]]; then
+	${singularity_cmd} recon-all -long ${cross_sectional_id} ${base_id} -qcache
+else
+	${singularity_cmd} recon-all -s ${subject_id} -qcache
+fi
 
 # create the .stats files for each annot file
 for hemi in lh rh; do
@@ -136,7 +192,7 @@ for hemi in lh rh; do
             stats_file=${subject_fs}/stats/${annot_name/.annot/.stats}
 
             # Freesurfer default anatomical stats
-            ${singularity_cmd} \
+	    ${singularity_cmd} \
                 mris_anatomical_stats \
                 -a ${native_annot} \
                 -f ${stats_file} \
@@ -171,6 +227,7 @@ for hemi in lh rh; do
 done
 
 # Create the tsvs for the regional stats from the parcellations
+export SINGULARITYENV_anatomical_stats=${anatomical_stats} #export anatomical stats flag as singularity environment variable to be accessible to parcstats_to_tsv_script
 if [[ $metrics != "none" ]]; then #export user-defined metrics as a singularity environment variable to be accessible in parcstats_to_tsv_script
 	export SINGULARITYENV_user_measures=${user_measures}
 fi
@@ -179,6 +236,8 @@ if [[ ${compute_lgi} == TRUE ]]; then #indicate whether LGI calculation was atte
 fi	
 ${neuromaps_singularity_cmd} \
 python ${parcstats_to_tsv_script} ${subject_id} ${native_parcs} ${parcs} #parcellation stats tsv
+${neuromaps_singularity_cmd} \
+python ${metadata_to_bids_script} ${subject_id} #metadata
 
 # Get these into MGH
 if [[ ${compute_lgi} == TRUE ]] && [[ $HAS_LGI -gt 0 ]]; then
@@ -193,16 +252,36 @@ fi
 # first we have to export them from mgh to gifti. We'll use freesurfer for this
 # but it will create malformed gifti files :S
 cd ${subject_fs}/surf
-for hemi in lh rh; do
-    for mgh_surf in ${hemi}*fsaverage.mgh; do
-	    if [[ $mgh_surf != *"fwhm"*5* ]]; then #not resampling all smoothed data (not fwhm 5, 15,25) to cifti. smooth output with -cifti-smoothing
-        	${singularity_cmd} mris_convert \
-            	-c ${PWD}/${mgh_surf} \
-            	${SUBJECTS_DIR}/fsaverage/surf/${hemi}.white \
-            	${PWD}/${mgh_surf/%.mgh/.malformed.shape.gii}
-	    fi
-    done
-done
+
+if [[ $anatomical_stats == "true" ]] ; then
+	for hemi in lh rh; do
+    		for mgh_surf in ${hemi}*fsaverage.mgh; do
+	    		if [[ $mgh_surf != *"fwhm"* ]]; then #not resampling all smoothed data to cifti. smooth output with -cifti-smoothing
+        			${singularity_cmd} mris_convert \
+            			-c ${PWD}/${mgh_surf} \
+            			${SUBJECTS_DIR}/fsaverage/surf/${hemi}.white \
+            			${PWD}/${mgh_surf/%.mgh/.malformed.shape.gii}
+	    		fi
+		done
+	done
+fi
+
+if [[ $anatomical_stats == "false" ]] ; then
+	user_measures=${metrics//,/ }
+	user_measures=${user_measures//"pial_lgi"/ } #remove pial_lgi from this list, handle it as a special case below
+	for hemi in lh rh; do
+		for measure in $user_measures; do
+			for mgh_surf in ${hemi}*${measure}*fsaverage.mgh; do
+	    			if [[ $mgh_surf != *"fwhm"* ]]; then #not resampling all smoothed data to cifti. smooth output with -cifti-smoothing
+					${singularity_cmd} mris_convert \
+            				-c ${PWD}/${mgh_surf} \
+					${SUBJECTS_DIR}/fsaverage/surf/${hemi}.white \
+            				${PWD}/${mgh_surf/%.mgh/.malformed.shape.gii}
+				fi
+			done
+		done
+	done
+fi
 
 # Finally, use neuromaps to go from fsaverage to fsLR164k
 ${neuromaps_singularity_cmd} \
@@ -211,6 +290,11 @@ ${neuromaps_singularity_cmd} \
 
 # Remove the malformed data from surf/
 rm -fv ${subject_fs}/surf/*malformed*
+
+# gather fsaverage mgh files
+mkdir -p "${output_dir}/${subject_id}_fsaverage"
+cp ${subject_fs}/surf/*fsaverage*mgh "${output_dir}/${subject_id}_fsaverage/"
+rm ${output_dir}/${subject_id}_fsaverage/*fwhm*
 
 # gather the fslr cifti files
 mkdir -p "${output_dir}/${subject_id}_fsLR_den-164k"
@@ -226,6 +310,7 @@ mv ${SUBJECTS_DIR}/*brainmeasures.* ${output_dir}/
 rm -rf ${subject_fs}/trash/*
 
 cd ${output_dir}
+tar cvfJ ${subject_id}_fsaverage.tar.xz ${subject_id}_fsaverage
 tar cvfJ ${subject_id}_fsLR_den-164k.tar.xz ${subject_id}_fsLR_den-164k
 rm -rf ${subject_id}_fsaverage ${subject_id}_fsLR_den-164k
 

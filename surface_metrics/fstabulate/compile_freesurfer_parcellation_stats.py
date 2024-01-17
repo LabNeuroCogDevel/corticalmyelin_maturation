@@ -33,6 +33,8 @@ def statsfile_to_df(stats_fname, hemi, atlas, column_suffix=""):
 subjects_dir = os.getenv("SUBJECTS_DIR")
 metrics = os.getenv("user_measures")
 lgi = os.getenv("LGI")
+anatomical_stats = os.getenv("anatomical_stats")
+
 if metrics:
     metrics = metrics.split(" ")
 if __name__ == "__main__":
@@ -48,9 +50,15 @@ if __name__ == "__main__":
             print(f"   {hemi}")
 
             # get the surface statistics
-            print("     anatomical stats")
-            surfstats_file = os.path.join(stats_dir, f"{hemi}.{atlas}.stats")
-            surfstat_df_ = statsfile_to_df(surfstats_file, hemi, atlas)
+            if anatomical_stats == "true": 
+                print("     anatomical stats")
+                surfstats_file = os.path.join(stats_dir, f"{hemi}.{atlas}.stats")
+                surfstat_df_ = statsfile_to_df(surfstats_file, hemi, atlas)
+
+            if anatomical_stats == "false":
+                surfstats_file = os.path.join(stats_dir, f"{hemi}.{atlas}.stats")
+                surfstat_df_ = statsfile_to_df(surfstats_file, hemi, atlas)
+                surfstat_df_ = surfstat_df_[["atlas", "hemisphere","StructName","NumVert","SurfArea"]]
 
             # get statistics for user-specified metrics
             if metrics:
