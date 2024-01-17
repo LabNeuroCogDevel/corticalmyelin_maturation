@@ -4,7 +4,7 @@ script_name=$0
 
 # A script that will calculate desired surface metrics for a list of surface atlases
 # and will grab subject metadata. Creates stat tsv and json files of the results.
-# Also creates cifti dscalar.nii files for desired surface metrics at 164k resolution.
+# Also creates cifti dscalar.nii files for desired surface metrics at 32k resolution.
 
 usage() {
 	cat << EOF >&2
@@ -125,7 +125,6 @@ if [[ ${metrics} == *"lgi"* ]]; then
 fi
 
 # Set up FreeSurfer environment 
-#source ${FREESURFER_HOME}/SetUpFreeSurfer.sh
 export SUBJECTS_DIR=${fs_root}
 subject_fs=${SUBJECTS_DIR}/${subject_id}
 
@@ -176,11 +175,14 @@ for hemi in lh rh; do
     done
 done
 
-# Run qcache on this person to get the mgh files
-if [[ $longitudinal_fs == TRUE ]]; then
-	${singularity_cmd} recon-all -long ${cross_sectional_id} ${base_id} -qcache
-else
-	${singularity_cmd} recon-all -s ${subject_id} -qcache
+# Run qcache on this person to get the mgh files, if it has not already been run
+qcache_status=$(cat ${subject_fs}/scripts/recon-all.log | grep "Qdec Cache")
+if [[ -z "$qcache_status" ]] ; then #if qcache has not been run (status is empty)
+	if [[ $longitudinal_fs == TRUE ]]; then
+		${singularity_cmd} recon-all -long ${cross_sectional_id} ${base_id} -qcache
+	else
+		${singularity_cmd} recon-all -s ${subject_id} -qcache
+	fi
 fi
 
 # create the .stats files for each annot file
@@ -281,7 +283,7 @@ for hemi in lh rh; do
 	done
 done
 
-# Finally, use neuromaps to go from fsaverage to fsLR164k
+# Finally, use neuromaps to go from fsaverage to fsLR32k
 ${neuromaps_singularity_cmd} \
   python ${to_cifti_script} \
   ${subject_fs}
@@ -305,8 +307,8 @@ done
 rm ${output_dir}/${subject_id}_fsaverage/*fwhm* #not saving smoothed surface metrics to the fsaverage tar ball
 
 # gather the fslr cifti files
-mkdir -p "${output_dir}/${subject_id}_fsLR_den-164k"
-mv ${subject_fs}/surf/*.nii "${output_dir}/${subject_id}_fsLR_den-164k/"
+mkdir -p "${output_dir}/${subject_id}_fsLR_den-32k"
+mv ${subject_fs}/surf/*.nii "${output_dir}/${subject_id}_fsLR_den-32k/"
 
 # Move the surface stats tsv
 mv ${subject_fs}/stats/*regionsurfacestats.tsv ${output_dir}/
@@ -319,6 +321,6 @@ rm -rf ${subject_fs}/trash/*
 
 cd ${output_dir}
 tar cvfJ ${subject_id}_fsaverage.tar.xz ${subject_id}_fsaverage
-tar cvfJ ${subject_id}_fsLR_den-164k.tar.xz ${subject_id}_fsLR_den-164k
-rm -rf ${subject_id}_fsaverage ${subject_id}_fsLR_den-164k
+tar cvfJ ${subject_id}_fsLR_den-32k.tar.xz ${subject_id}_fsLR_den-32k
+rm -rf ${subject_id}_fsaverage ${subject_id}_fsLR_den-32k
 
