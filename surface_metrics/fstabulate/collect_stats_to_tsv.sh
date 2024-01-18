@@ -58,17 +58,17 @@ EOF
 	exit 1
 }
 
-subject_id=false # positional argument
-freesurfer_dir=false # positional argument
-freesurfer_sif=false # positional argument
-neuromaps_sif=false # positional argument
-freesurfer_license=false # positional argument
-output_dir=false # positional argument
-metrics=none # user can specify a list of additional metrics, but defaults to none
-parcellations=AAL,CC200,CC400,glasser,gordon333dil,HOCPATh25,Juelich,PALS_B12_Brodmann,Schaefer2018_1000Parcels_17Networks_order,Schaefer2018_1000Parcels_7Networks_order,Schaefer2018_100Parcels_17Networks_order,Schaefer2018_100Parcels_7Networks_order,Schaefer2018_200Parcels_17Networks_order,Schaefer2018_200Parcels_7Networks_order,Schaefer2018_300Parcels_17Networks_order,Schaefer2018_300Parcels_7Networks_order,Schaefer2018_400Parcels_17Networks_order,Schaefer2018_400Parcels_7Networks_order,Schaefer2018_500Parcels_17Networks_order,Schaefer2018_500Parcels_7Networks_order,Schaefer2018_600Parcels_17Networks_order,Schaefer2018_600Parcels_7Networks_order,Schaefer2018_700Parcels_17Networks_order,Schaefer2018_700Parcels_7Networks_order,Schaefer2018_800Parcels_17Networks_order,Schaefer2018_800Parcels_7Networks_order,Schaefer2018_900Parcels_17Networks_order,Schaefer2018_900Parcels_7Networks_order,Slab,Yeo2011_17Networks_N1000,Yeo2011_7Networks_N1000 # user can specify a list of parcellations, but defaults to all
-native_parcellations=aparc.DKTatlas,aparc.a2009s,aparc,BA_exvivo # user can specify a list of fs native parcellations, but defaults to all
-anatomical_stats=true # user can toggle mris_anatomical stats on or off, but it is run by default
-vertices=32k # user can request 32k or 164k, but defaults to the lower resolution
+subject_id=${SUBJECT_ID:-false} # positional argument
+freesurfer_dir=${FS_DIR:-false} # positional argument
+freesurfer_sif=${FS_SIF:-false} # positional argument
+neuromaps_sif=${NM_SIF:-false} # positional argument
+freesurfer_license=${LIC:-false} # positional argument
+output_dir=${OUTPUT_DIR:-false} # positional argument
+metrics=${METRICS:-none} # user can specify a list of additional metrics, but defaults to none
+parcellations=${PARCS:-AAL,CC200,CC400,glasser,gordon333dil,HOCPATh25,Juelich,PALS_B12_Brodmann,Schaefer2018_1000Parcels_17Networks_order,Schaefer2018_1000Parcels_7Networks_order,Schaefer2018_100Parcels_17Networks_order,Schaefer2018_100Parcels_7Networks_order,Schaefer2018_200Parcels_17Networks_order,Schaefer2018_200Parcels_7Networks_order,Schaefer2018_300Parcels_17Networks_order,Schaefer2018_300Parcels_7Networks_order,Schaefer2018_400Parcels_17Networks_order,Schaefer2018_400Parcels_7Networks_order,Schaefer2018_500Parcels_17Networks_order,Schaefer2018_500Parcels_7Networks_order,Schaefer2018_600Parcels_17Networks_order,Schaefer2018_600Parcels_7Networks_order,Schaefer2018_700Parcels_17Networks_order,Schaefer2018_700Parcels_7Networks_order,Schaefer2018_800Parcels_17Networks_order,Schaefer2018_800Parcels_7Networks_order,Schaefer2018_900Parcels_17Networks_order,Schaefer2018_900Parcels_7Networks_order,Slab,Yeo2011_17Networks_N1000,Yeo2011_7Networks_N1000} # user can specify a list of parcellations, but defaults to all
+native_parcellations=${NATIVE:-aparc.DKTatlas,aparc.a2009s,aparc,BA_exvivo} # user can specify a list of fs native parcellations, but defaults to all
+anatomical_stats=${ANAT:-true} # user can toggle mris_anatomical stats on or off, but it is run by default
+vertices=${VERTICES:-32k} # user can request 32k or 164k, but defaults to the lower resolution
 
 
 while getopts "s:f:c:n:l:o:m:p:d:a:v:" opt; do
@@ -143,7 +143,7 @@ subject_fs=${SUBJECTS_DIR}/${subject_id}
 
 # Scripts and data dirs from freesurfer_tabulate repo
 SCRIPT_DIR=$(dirname "$script_name")
-SCRIPT_DIR=$(realpath $SCRIPT_DIR) #expand full path of script dir so we can bind full (instead of relative) path to the container
+SCRIPT_DIR=${SCRIPTDIR:-$(realpath $SCRIPT_DIR)} #expand full path of script dir so we can bind full (instead of relative) path to the container
 annots_dir=${SCRIPT_DIR}/annots
 parcstats_to_tsv_script=${SCRIPT_DIR}/compile_freesurfer_parcellation_stats.py
 to_cifti_script=${SCRIPT_DIR}/vertex_measures_to_cifti.py
