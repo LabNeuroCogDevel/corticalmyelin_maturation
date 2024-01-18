@@ -40,5 +40,4 @@ for subject_id in $freesurfer_dir/sub*ses*.long.sub*; do
       -e "${subses}-fstabulate-anatR1.e" \
       --export="ALL,SUBJECT_ID=$subject_id,FS_DIR=$freesurfer_dir,FS_SIF=$freesurfer_sif,NM_SIF=$neuromaps_sif,LIC=$license,OUTPUT_DIR=$output_dir,'METRICS=R1map.0.0%,R1map.0.1%,R1map.0.2%,R1map.0.3%,R1map.0.4%,R1map.0.5%,R1map.0.6%,R1map.0.7%,R1map.0.8%,R1map.0.9%,R1map.1.00%,w-g.pct','PARCS=glasser,gordon333dil,Juelich,Schaefer2018_400Parcels_17Networks_order,Schaefer2018_200Parcels_17Networks_order','NATIVE=aparc',ANAT=$anatomical_stats,VERTICES=$vertices,SCRIPTDIR=$script_dir" \
       "$script_dir/collect_stats_to_tsv.sh"
-break
 done	
