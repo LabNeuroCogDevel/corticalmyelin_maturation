@@ -169,8 +169,8 @@ if __name__ == "__main__":
         if "SegId" in key:
             del fs_audit[key]
 
-    out_tsv = fs_root / (fs_dirname + "_brainmeasures.tsv")
-    out_json = fs_root / (fs_dirname + "_brainmeasures.json")
+    out_tsv = fs_root /  subject_id / "stats" / (fs_dirname + "_brainmeasures.tsv")
+    out_json = fs_root / subject_id / "stats" / (fs_dirname + "_brainmeasures.json")
 
     metadata = {key: value["meta"] for key, value in fs_audit.items()}
     with out_json.open("w") as jsonf:

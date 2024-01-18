@@ -331,8 +331,8 @@ mv ${subject_fs}/surf/*.nii "${output_dir}/${subject_id}_fsLR_den-$vertices/"
 # Move the surface stats tsv
 mv ${subject_fs}/stats/*regionsurfacestats.tsv ${output_dir}/
 
-# Move the metadata
-mv ${SUBJECTS_DIR}/*brainmeasures.* ${output_dir}/
+# Move the whole brain data and corresponding metadata
+mv ${subject_fs}/stats/*brainmeasures.* ${output_dir}/
 
 # Remove temp files from neuromaps
 rm -rf ${subject_fs}/trash/*
