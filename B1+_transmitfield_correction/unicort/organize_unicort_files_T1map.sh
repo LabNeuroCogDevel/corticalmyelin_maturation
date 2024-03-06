@@ -10,8 +10,9 @@ while read line; do
 	subses=$line
 	subject_id=${subses% *}
 	session_id=${subses#* }
+	
+	if ! [ -f ${unicort_T1dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_T1map-corrected.nii.gz ] ; then
 	echo "cleaning up UNICORT output for $subject_id $session_id"
-		
 	#Rename and gzip the UNICORT-corrected quantitative T1 image
 	cp ${unicort_T1dir}/${subject_id}/${session_id}/anat/m${subject_id}_${session_id}_T1map.nii ${unicort_T1dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_T1map-corrected.nii
 	gzip ${unicort_T1dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_T1map-corrected.nii		
@@ -25,6 +26,7 @@ while read line; do
 	rm ${unicort_T1dir}/${subject_id}/${session_id}/anat/*UNIT1.nii
 	rm ${unicort_T1dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_T1map.nii
 	rm ${unicort_T1dir}/${subject_id}/${session_id}/anat/${subject_id}_${session_id}_T1map.json
+	fi
 
 done < ${participant_file}	
 
