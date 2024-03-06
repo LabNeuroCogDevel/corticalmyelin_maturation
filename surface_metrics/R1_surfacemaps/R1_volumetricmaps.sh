@@ -4,7 +4,7 @@
 
 unicort_T1dir=/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/unicort_T1map
 R1dir=/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/R1maps
-participant_file=/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_freesurfer_subses_list.txt
+participant_file=/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_CuBIDS_subses_list.txt
 
 mkdir -p $R1dir
 
