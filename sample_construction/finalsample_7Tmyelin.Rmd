@@ -1,0 +1,272 @@
+---
+title: "7T Myelin Plasticity Sample Selection"
+output: 
+  html_document:
+    code_folding: show
+    highlight: monochrome
+    theme: flatly
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(fuzzyjoin)
+library(arrow)
+library(kableExtra)
+```
+
+## Sample Construction
+
+#### 7T Brain Mechanisms Scan List
+
+*Neuroimaging data were initially collected from N = 174 participants over N = 303 sessions*
+```{r}
+scans.7T <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_MP2RAGE_curation_QC.csv", sep = "\t") #list of 303 dicom sessions with acquisition and QC information
+```
+
+#### MP2RAGE Data Collection and CuBIDS Exclusion
+
+*Exclude sessions that did not have a dominant-group-parameter (CuBIDS) MP2RAGE scan collected*
+```{r}
+participants.mp2rage <- scans.7T %>% filter(MP2RAGE_CuBIDS_pass != 0) #remove 35 sessions where no MP2RAGE data were collected or an incorrect sequence was collected from the initial session list of 303, resulting in N = 268 valid sessions from 163 participants
+```
+
+#### Visual Quality Control Exclusion 
+
+*Exclude sessions that failed visual quality assurance of UNI and R1 images*
+```{r}
+participants.qc <- participants.mp2rage %>% filter(MP2RAGE_QC_passfail != 0) #remove 44 sessions from the original 268 (16.4%) due to failing visual QC of UNI and R1 maps,resulting in N = 224 valid sessions from 145 subjects
+```
+
+#### Psychiatric Diagnosis Exclusion 
+
+*Exclude participants that received a psychiatric diagnosis during or after baseline data collection*
+```{r}
+subids.psychexclude <- c("sub-11646", "sub-11659", "sub-11800", "sub-11653", "sub-11690", "sub-11812")
+participants.healthy <- participants.qc[!(participants.qc$subject_id %in% subids.psychexclude),] #remove 3 baseline sessions (and 3 subjects) from the 225 due to psychiatric diagnosis, resulting in N = 221 sessions from 142 subjects 
+```
+
+#### Repeated Sessions Exclusion
+
+*Exclude repeat-MR sessions that occurred within < 6 months of each other*
+```{r}
+#Calculate the number of days between each pair of scans for each subject
+participants.healthy <- participants.healthy %>% mutate(scan_date = ymd(gsub('.*-', '', session_id)))
+participants.healthy <- participants.healthy %>% group_by(subject_id) %>% mutate(interscan_days = c(NA, diff(scan_date))) %>% ungroup()
+
+#Identify subject_ids and session_ids with repeat scans
+subids.repeatscans <- participants.healthy %>% filter(interscan_days < 180) %>% select(subject_id)
+repeatscans <- participants.healthy[participants.healthy$subject_id %in% subids.repeatscans$subject_id,] %>% select(subject_id, session_id, MP2RAGE_QC_rating, scan_date, interscan_days) %>% mutate(lunaid = gsub("sub-", "", subject_id))
+sprintf("There are %s repeat scans to remove", length(unique(subids.repeatscans$subject_id))) #4 participants with repeat scans < 6 months apart
+```
+
+```{r}
+repeatscan.indices <- which(repeatscans$interscan_days < 180) #rows containing the repeat scan 
+repeatscan.indices <- c(repeatscan.indices, repeatscan.indices-1) #rows containing the repeat scan + the one prior to it (its pair; we go together like rama lama lama ka dinga da dinga dong)
+
+repeatscans <- repeatscans[repeatscan.indices,] %>% arrange(subject_id, session_id)
+```
+
+```{r}
+#Determine the date of corresponding MRSI and EEG data for each repeat scan session to find the best matches based on data availability + MP2RAGE QC rating
+demos.7T <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/merged_7t.csv") %>% select(lunaid, visitno, top.mri.date, behave.date, rest.date, eeg.date, sipfc.date, sess.age, sess.age_range, sex)
+ 
+repeatscans <- merge(repeatscans, demos.7T, by = "lunaid") %>% 
+               arrange(subject_id) %>% 
+               mutate(MRSI_date = ymd(sipfc.date), EEG_date = ymd(eeg.date), MRSI_MP2RAGE_interscan_days = abs(MRSI_date - scan_date), EEG_MP2RAGE_interscan_days = abs(EEG_date - scan_date)) %>% 
+               filter(EEG_MP2RAGE_interscan_days < 360) %>% 
+               select(subject_id, session_id, lunaid, MP2RAGE_QC_rating, scan_date, EEG_date, EEG_MP2RAGE_interscan_days, MRSI_date, MRSI_MP2RAGE_interscan_days)
+
+kbl(repeatscans) %>%
+  kable_classic(full_width = F)
+```
+
+```{r}
+#remove 4 repeat MR sessions from the 221, resulting in N = 217 sessions from 142 subjects
+participants.scans <- participants.healthy %>% filter(!(subject_id == "sub-11668" & session_id == "ses-20180702"))
+participants.scans <- participants.scans %>% filter(!(subject_id == "sub-11716" & session_id == "ses-20221118"))
+participants.scans <- participants.scans %>% filter(!(subject_id == "sub-11818" & session_id == "ses-20221117"))
+participants.scans <- participants.scans %>% filter(!(subject_id == "sub-11822" & session_id == "ses-20210412"))
+```
+
+*Exclude subject with incorrect (repeat assign) lunaid*
+```{r}
+participants.scans <- participants.scans %>% filter(!(subject_id == "sub-11748" & session_id == "ses-20190401")) #remove 1 sub/session from the 217, resulting in N = 216 sessions from 141 subjects
+```
+
+#### R1 Outlier Exclusion
+
+*Exclude participants with outlier R1 data at the whole-brain level*
+```{r, warning=F, message=F}
+#Get depth-dependent R1 measures for all participants
+###function
+extract_R1stats <- function(myatlas, mymeasure){
+  #surface anatomical and myelin measures parquet
+  surfacemeasures <- read_parquet("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/7T_BrainMechanisms_surfacestats_allatlases.parquet")
+  
+  #get data for my atlas of interest and format atlas labels to be hemisphere-specific if needed
+  atlasmeasures <- surfacemeasures %>% filter(atlas == myatlas)
+  if(myatlas == "aparc"){
+    atlasmeasures$StructName <- paste0(sprintf("%s_", atlasmeasures$hemisphere), atlasmeasures$StructName)
+  }
+  
+  #get data for my measure of interest
+  measure.df <- atlasmeasures %>% select(subject_id, session_id, StructName, all_of(mymeasure))
+  measure.df <- measure.df %>% filter(StructName != "???" & StructName != "Background+FreeSurfer_Defined_Medial_Wall") #remove unknown/medial wall label
+  measure.df <- measure.df %>% pivot_wider(names_from = "StructName", values_from = all_of(mymeasure)) #long to wide df
+}
+
+mean.myelin.measures <- list("Mean_R1map.1.00%","Mean_R1map.0.9%","Mean_R1map.0.8%","Mean_R1map.0.7%","Mean_R1map.0.6%","Mean_R1map.0.5%","Mean_R1map.0.4%","Mean_R1map.0.3%","Mean_R1map.0.2%","Mean_R1map.0.1%", "Mean_R1map.0.0%") #measures to extract data from 
+
+###apply function  
+myelin.glasser.7T <- lapply(mean.myelin.measures, function(x) {
+  extract_R1stats("glasser", x)})
+
+names(myelin.glasser.7T) <- list("depth1.0", "depth0.9", "depth0.8", "depth0.7", "depth0.6", "depth0.5", "depth0.4", "depth0.3", "depth0.2", "depth0.1", "depth0.0")
+```
+
+```{r, warning = F, message = F}
+#Calculate whole-brain mean R1 for every participant
+cortical_layer_mean <- function(input.df){
+  depth.mean <- input.df %>% select(contains("ROI")) %>% rowMeans() %>% as.data.frame() %>% set_names("mean_myelin")
+  return(depth.mean)
+}
+
+meanmyelin.depth <- lapply(myelin.glasser.7T, function(x) {
+  cortical_layer_mean(x)
+})
+
+meanmyelin.depth <- bind_cols(meanmyelin.depth) %>% as.data.frame()
+meanmyelin.wholebrain <- rowMeans(meanmyelin.depth) %>% as.data.frame() %>% set_names("mean_myelin") %>% mutate(subject_id = myelin.glasser.7T$depth1.0$subject_id, session_id = myelin.glasser.7T$depth1.0$session_id)
+
+#Get whole-brain mean R1 for just the remaining scans (N = 216) to compute outliers on 
+meanmyelin.wholebrain <- merge(meanmyelin.wholebrain, participants.scans, by = c("subject_id", "session_id"))
+
+#Compute outliers
+group.mean <- mean(meanmyelin.wholebrain$mean_myelin)
+group.sd <- IQR(meanmyelin.wholebrain$mean_myelin)
+lowerbound <- group.mean-(4*group.sd) 
+upperbound <- group.mean+(4*group.sd)
+
+#Outliers to exclude from final participant list
+meanmyelin.wholebrain %>% filter(mean_myelin < lowerbound)
+kbl(meanmyelin.wholebrain %>% filter(mean_myelin > upperbound)) %>% kable_classic(full_width = F)
+```
+
+```{r}
+participants.final <- participants.scans %>% filter(!(subject_id == "sub-11675" & session_id == "ses-20180730"))
+```
+
+#### Save Final Sample
+
+```{r}
+participants.final <- participants.final %>% select(subject_id, session_id)
+write.csv(participants.final, "/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_finalsample_subses.csv", quote = F, row.names = F)
+```
+
+## Sample Characterization
+
+#### Sample information
+
+**Final number of participants**
+
+```{r}
+length(unique(participants.final$subject_id))
+```
+
+**Final number of scans**
+
+```{r}
+length(participants.final$session_id)
+```
+
+**Distribution of number of scans per participant**
+
+```{r}
+participants.final <- participants.final %>% group_by(subject_id) %>% mutate(mp2rage.session_number = dense_rank(session_id))
+table(participants.final$mp2rage.session_number)
+```
+
+#### Accelerated longitudinal data plot
+
+```{r}
+#Match subject and session ids to the data in merge 7T via fuzzy regex matching between lunaid-lunaid and top.mri.date versus session_id date
+participants.final <- participants.final %>% mutate(lunaid = gsub("sub-", "", subject_id)) #create lunaid variable
+participants.final <- participants.final %>% mutate(mp2rage.date = gsub("ses-", "", session_id)) #scandate variable
+demos.7T$lunaid <- as.character(demos.7T$lunaid)
+
+participants.final.demos <- fuzzy_right_join(demos.7T, participants.final, by = c("lunaid" = "lunaid", "top.mri.date" = "mp2rage.date"), match_fun = str_detect)
+participants.final.demos <- participants.final.demos %>% select(lunaid.x, subject_id, session_id, visitno, mp2rage.session_number, top.mri.date, sess.age, sess.age_range, sex, behave.date, mp2rage.date, rest.date, sipfc.date, eeg.date)
+participants.final.demos <- participants.final.demos %>% rename(lunaid = lunaid.x, age = sess.age)
+```
+
+```{r}
+#Plot scan and session information, ordering participants by age
+age_ranked <-
+      participants.final.demos %>%
+      select(lunaid, age) %>%
+      group_by(lunaid) %>%
+      summarise(minage = min(age)) %>%
+      ungroup() %>%
+      mutate(age_id = rank(minage, ties.method="first") ) %>%
+      inner_join(participants.final.demos, by="lunaid")
+
+ggplot(age_ranked) +
+      aes(x = age, y = age_id, group = age_id) +
+      geom_line(color = "grey80") +
+      geom_point(aes(color = as.factor(mp2rage.session_number)), size = 2.5) +
+      scale_color_manual(values = c("#c9b2d6", "#9166ad", "#4d1a7a")) +
+      theme_classic() +
+      theme(legend.position = "none") +
+      labs(x = "\nAge", y = "Participant Number\n") +
+      scale_y_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150), limits = c(0, 150))
+      
+```
+
+#### QC validation
+
+**Euler number for excluded versus included scans**
+
+```{r}
+fs.qc <- read_parquet("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/7T_BrainMechanisms_brainmeasures.parquet") %>% select(subject_id, session_id, lh_euler, rh_euler) #Euler numbers from fstabulate
+fs.qc$session_id <- gsub('.{15}$', '', fs.qc$session_id) #format session_id to remove long.sub-id from the session name (just keep ses-date)
+fs.qc <- merge(scans.7T, fs.qc, by = c("subject_id", "session_id"), sort = F) #euler number exists for n = 265 scans. This is all scans where a MP2RAGE was collected, with the exception of 3 scans that failed to run through freesurfer due to extremely low quality
+fs.qc <- fs.qc %>% mutate(euler = (fs.qc$lh_euler + fs.qc$rh_euler)/2)
+``` 
+
+```{r}
+var.test(fs.qc$euler ~ fs.qc$MP2RAGE_QC_passfail)
+```
+
+```{r}
+t.test(fs.qc$euler ~ fs.qc$MP2RAGE_QC_passfail, vaq.equal = F)
+```
+
+```{r}
+#The higher the Euler number, the higher the data quality for FreeSurfer cortical reconstruction
+ggplot(fs.qc, aes(x = as.factor(MP2RAGE_QC_passfail), y = euler, color = as.factor(MP2RAGE_QC_passfail))) +
+  geom_point(position = position_jitter(width= 0.3)) +
+  geom_boxplot(fill = alpha(0.5)) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  xlab("  Fail                                                                Pass") +
+  scale_color_manual(values = c("#a83260", "#9166ad"))
+```
+```{r}
+#Percentage of euler numbers for the excluded scans that are less than the mean euler of the included scans
+sum(fs.qc %>% filter(MP2RAGE_QC_passfail == 0) %>% select(euler) < (fs.qc %>% filter(MP2RAGE_QC_passfail == 1) %>% select(euler) %>% colMeans())) / nrow(fs.qc %>% filter(MP2RAGE_QC_passfail == 0))
+```
+
+## Save Sample Demographics 
+
+```{r}
+write.csv(participants.final.demos, "/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_MP2RAGE_finalsample_demographics.csv", quote = F, row.names = F)
+```
+
+
