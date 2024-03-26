@@ -13,19 +13,21 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   #Format input data
   gam.data <- input.df #df for gam modeling
   parcel <- region 
-  region <- str_replace(region, "-", ".") #region for gam modeling
-  input.df[,id_var] <- as.factor(input.df[,id_var]) #random effects variable must be a factor for mgcv::gam
+  region <- str_replace(region, "-", "_") #region for gam modeling
+  gam.data[,id_var] <- as.factor(gam.data[,id_var]) #random effects variable must be a factor for mgcv::gam
   covs <- str_split(covariates, pattern = "\\+", simplify = T)
   for(cov in covs){
-    if(class(input.df[,cov]) == "character"){
-      input.df[,cov] <- as.factor(input.df[,cov]) #format covariates as factors if needed
+    if(class(gam.data[,cov]) == "character"){
+      gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
     }
   }
   
   #Fit the model
+  if(random_intercepts == FALSE && random_slopes == FALSE){
     modelformula <- as.formula(sprintf("%s ~ s(%s, k = %s, fx = %s) + %s", region, smooth_var, knots, set_fx, covariates))
     gam.model <- gam(modelformula, method = "REML", data = gam.data)
     gam.results <- summary(gam.model)
+  }
   
   if(random_intercepts == TRUE){
     modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + %6$s", region, smooth_var, knots, set_fx, id_var, covariates))
