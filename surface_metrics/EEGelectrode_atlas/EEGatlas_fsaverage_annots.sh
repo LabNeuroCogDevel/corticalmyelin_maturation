@@ -10,7 +10,7 @@ annots_dir=/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin
 wb_command=/Volumes/Hera/Projects/corticalmyelin_development/software/workbench/bin_linux64/wb_command
 
 ## Create MNI-space spherical ROIs from EEG coordinates
-mlr --tsv --icsv  cut -f x,y,z < $EEGatlas_dir/electrodeMNIcoordinatesCortex_20240202.csv | awk '(NR>1 && NF==3){print $0 "\t" NR-1}' | 3dUndump -prefix $EEGatlas_dir/electrodeLocs_MNIcoordinates_cortex_atlas.nii.gz -master /Volumes/Hera/Projects/corticalmyelin_development/Maps/Templates/tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz -srad 7 -xyz -overwrite -
+mlr --tsv --icsv  cut -f x,y,z < $EEGatlas_dir/electrodeMNIcoordinatesCortex_20240202.csv | awk '(NR>1 && NF==3){print $0 "\t" NR-1}' | 3dUndump -prefix $EEGatlas_dir/electrodeLocs_MNIcoordinates_cortex_atlas.nii.gz -master /Volumes/Hera/Projects/corticalmyelin_development/Maps/Templates/tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz -srad 10 -xyz -overwrite -
 
 ## Create EEG atlas giftis by transforming volumetric labels to the fsaverage surface
 python $SCRIPT_DIR/EEGatlas_fsaverage_giftis.py
@@ -22,7 +22,7 @@ wb_command -cifti-create-dense-scalar -left-metric $EEGatlas_dir/source-64electr
 wb_command -cifti-label-import $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k.dscalar.nii $EEGatlas_dir/EEGatlas_labeltable.txt $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k.dlabel.nii -discard-others -unlabeled-value 0 
 
 ## Dilate the cifti labels
-wb_command -cifti-dilate $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k.dlabel.nii COLUMN 4 0 $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k.dlabel.nii -left-surface /Volumes/Hera/Projects/corticalmyelin_development/Maps/Templates/tpl-fsaverage/tpl-fsaverage_hemi-L_den-164k_midthickness.surf.gii -right-surface /Volumes/Hera/Projects/corticalmyelin_development/Maps/Templates/tpl-fsaverage/tpl-fsaverage_hemi-R_den-164k_midthickness.surf.gii -nearest #nearest neighborhood ROI dilation using surface geometry
+wb_command -cifti-dilate $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k.dlabel.nii COLUMN 1 0 $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k.dlabel.nii -left-surface /Volumes/Hera/Projects/corticalmyelin_development/Maps/Templates/tpl-fsaverage/tpl-fsaverage_hemi-L_den-164k_midthickness.surf.gii -right-surface /Volumes/Hera/Projects/corticalmyelin_development/Maps/Templates/tpl-fsaverage/tpl-fsaverage_hemi-R_den-164k_midthickness.surf.gii -nearest #nearest neighborhood ROI dilation using surface geometry
 
 ## Turn the cifti dlabel into two gifti labels
 wb_command -cifti-separate $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k.dlabel.nii COLUMN -label CORTEX_LEFT $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k_hemi-L.label.gii -label CORTEX_RIGHT $EEGatlas_dir/source-64electrodeMNI_desc-EEGatlas_space-fsaverage_den-164k_hemi-R.label.gii
