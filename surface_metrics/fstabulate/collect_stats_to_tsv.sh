@@ -198,7 +198,7 @@ if [[ -z "$qcache_status" ]] ; then #if qcache has not been run (status is empty
 	fi
 fi
 
-# create the .stats files for each annot file
+# Create the .stats files for each annot file
 for hemi in lh rh; do
     for parc in ${native_parcs} ${parcs}; do
 
@@ -221,12 +221,26 @@ for hemi in lh rh; do
 		user_measures=${metrics//,/ }
 		user_measures=${user_measures//"pial_lgi"/ } #remove pial_lgi from this list, handle it as a special case below
 		for measure in $user_measures; do
+
+			# Create a hemisphere-specific cortical mask to use with mri_segstats
+			${singularity_cmd} \
+				mri_binarize \ 
+				--i ${subject_fs}/surf/${hemi}.${measure}.mgh \
+				--min 0.01 \
+				--binval 1 \
+				--binvalnot 0 \
+				--o ${subject_fs}/surf/${hemi}.cortexmask.mgh
+
+			# Calculate regional measures for parcellations of interest 
 			${singularity_cmd} \
 				mri_segstats \
+				--robust 2 \
 				--in ${subject_fs}/surf/${hemi}.${measure}.mgh \
 				--annot ${subject_id} ${hemi} ${parc} \
-				--sum ${subject_fs}/stats/${hemi}.${parc}.${measure}.stats\
-				--snr
+				--sum ${subject_fs}/stats/${hemi}.${parc}.${measure}.stats \
+				--snr \
+				--mask ${hemi}.cortexmask.mgh \
+				--maskthresh 0.01
 		done
 	    fi
 	
@@ -234,6 +248,7 @@ for hemi in lh rh; do
 	    if [[ ${compute_lgi} == TRUE ]] && [[ $HAS_LGI -gt 0 ]]; then
                 ${singularity_cmd} \
                     mri_segstats \
+		    --robust 1 \
                     --annot ${subject_id} ${hemi} ${parc} \
                     --in ${subject_fs}/surf/${hemi}.pial_lgi \
                     --sum ${subject_fs}/stats/${hemi}.${parc}.pial_lgi.stats
