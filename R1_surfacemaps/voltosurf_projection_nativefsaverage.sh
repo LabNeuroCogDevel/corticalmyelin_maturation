@@ -77,10 +77,10 @@ singularity exec --writable-tmpfs -B $moving_image_dir:/moving -B $freesurfer_di
 if [[ "$projection_distance" =~ false ]] ; then #projection fraction (% pial-GM/WM boundary) mode
 for hemi in lh rh; do
 	for depth in ${projection_fraction//,/ }; do
-		singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.mgh --interp trilinear
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.mgh --interp trilinear --cortex
 		if [[ "$smoothing_fwhm" != false ]] ; then #smoothed outputs requested
 			for fwhm in ${smoothing_fwhm//,/ }; do
-				singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.mgh --o /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fwhm${fwhm}.mgh --s $subject_id --so --hemi ${hemi} --fwhm ${fwhm}
+				singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.mgh --o /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fwhm${fwhm}.mgh --s $subject_id --so --hemi ${hemi} --fwhm ${fwhm} --cortex
 			done
 		fi
 	done
@@ -90,10 +90,10 @@ fi
 if [[ "$projection_distance" != false ]] ; then #projection distance (mm) mode
 for hemi in lh rh; do
 	for depth in ${projection_distance//,/ }; do
-		singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projdist $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.mgh --interp trilinear
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projdist $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.mgh --interp trilinear --cortex
 		if [[ "$smoothing_fwhm" != false ]] ; then #smoothed outputs requested
                         for fwhm in ${smoothing_fwhm//,/ }; do
-                                singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.mgh --o /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fwhm${fwhm}.mgh --s $subject_id --so --hemi ${hemi} --fwhm ${fwhm}
+                                singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.mgh --o /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fwhm${fwhm}.mgh --s $subject_id --so --hemi ${hemi} --fwhm ${fwhm} --cortex
 			done
 		fi
 	done
@@ -104,10 +104,10 @@ fi
 if [[ "$projection_distance" =~ false ]] ; then #projection fraction (% pial-GM/WM boundary) mode 
 for hemi in lh rh; do
 	for depth in ${projection_fraction//,/ }; do
-		singularity exec --writable-tmpfs -B $input_image_dir:/input -B ${freesurfer_dir}:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --trgsubject fsaverage  --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fsaverage.mgh --interp trilinear
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B ${freesurfer_dir}:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projfrac $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --trgsubject fsaverage  --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fsaverage.mgh --interp trilinear --cortex
 		if [[ "$smoothing_fwhm" != false ]] ; then #smoothed outputs requested
                         for fwhm in ${smoothing_fwhm//,/ }; do
-                                singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i  /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fsaverage.mgh --o  /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fwhm${fwhm}.fsaverage.mgh --s fsaverage --so --hemi ${hemi} --fwhm ${fwhm}
+                                singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i  /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fsaverage.mgh --o  /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}%.fwhm${fwhm}.fsaverage.mgh --s fsaverage --so --hemi ${hemi} --fwhm ${fwhm} --cortex
 			done
 		fi
 	done
@@ -117,10 +117,10 @@ fi
 if [[ "$projection_distance" != false ]] ; then #projection distance (mm) mode 
 for hemi in lh rh; do
 	for depth in ${projection_distance//,/ }; do
-		singularity exec --writable-tmpfs -B $input_image_dir:/input -B ${freesurfer_dir}:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projdist $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --trgsubject fsaverage  --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fsaverage.mgh --interp trilinear
+		singularity exec --writable-tmpfs -B $input_image_dir:/input -B ${freesurfer_dir}:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mri_vol2surf --src /input/$input_image_name --hemi $hemi --projdist $depth --srcreg /opt/freesurfer/subjects/$subject_id/mri/${moving_image_basename}_coreg_T1.lta --trgsubject fsaverage  --out /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fsaverage.mgh --interp trilinear --cortex
 		if [[ "$smoothing_fwhm" =~ false ]] ; then #smoothed outputs requested
                         for fwhm in ${smoothing_fwhm//,/ }; do
-                                singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fsaverage.mgh --o /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fwhm${fwhm}.fsaverage.mgh --s fsaverage --so --hemi ${hemi} --fwhm ${fwhm}
+                                singularity exec --writable-tmpfs -B $input_image_dir:/input -B $freesurfer_dir:/opt/freesurfer/subjects -B $freesurfer_license:/opt/freesurfer/license.txt $freesurfer_sif mris_fwhm --i /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fsaverage.mgh --o /opt/freesurfer/subjects/$subject_id/surf/${hemi}.${input_image_type}.${depth}mm.fwhm${fwhm}.fsaverage.mgh --s fsaverage --so --hemi ${hemi} --fwhm ${fwhm} --cortex
 			done
 		fi
 	done
