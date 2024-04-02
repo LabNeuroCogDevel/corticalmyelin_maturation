@@ -232,15 +232,26 @@ for hemi in lh rh; do
 				--o ${subject_fs}/surf/${hemi}.cortexmask.mgh
 
 			# Calculate regional measures for parcellations of interest 
-			${singularity_cmd} \
-				mri_segstats \
-				--robust 2 \
-				--in ${subject_fs}/surf/${hemi}.${measure}.mgh \
-				--annot ${subject_id} ${hemi} ${parc} \
-				--sum ${subject_fs}/stats/${hemi}.${parc}.${measure}.stats \
-				--snr \
-				--mask ${subject_fs}/surf/${hemi}.cortexmask.mgh \
-				--maskthresh 0.01
+			if [[ $parc == "MRSIatlas" ]]; then
+				${singularity_cmd} \
+					mri_segstats \
+					--robust 2 \
+					--in ${subject_fs}/surf/${hemi}.${measure}.mgh \
+					--annot ${subject_id} ${hemi} ${parc} \
+					--sum ${subject_fs}/stats/${hemi}.${parc}.${measure}.stats \
+					--snr \
+					--mask ${subject_fs}/surf/${hemi}.cortexmask.mgh \
+					--maskthresh 0.01
+			else
+				${singularity_cmd} \
+					mri_segstats \
+					--robust 2 \
+					--in ${subject_fs}/surf/${hemi}.${measure}.mgh \
+					--annot ${subject_id} ${hemi} ${parc} \
+					--sum ${subject_fs}/stats/${hemi}.${parc}.${measure}.stats \
+					--snr
+			fi
+					
 		done
 	    fi
 	
