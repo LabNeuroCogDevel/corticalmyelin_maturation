@@ -224,7 +224,7 @@ for hemi in lh rh; do
 
 			# Create a hemisphere-specific cortical mask to use with mri_segstats
 			${singularity_cmd} \
-				mri_binarize \ 
+				mri_binarize \
 				--i ${subject_fs}/surf/${hemi}.${measure}.mgh \
 				--min 0.01 \
 				--binval 1 \
@@ -239,7 +239,7 @@ for hemi in lh rh; do
 				--annot ${subject_id} ${hemi} ${parc} \
 				--sum ${subject_fs}/stats/${hemi}.${parc}.${measure}.stats \
 				--snr \
-				--mask ${hemi}.cortexmask.mgh \
+				--mask ${subject_fs}/surf/${hemi}.cortexmask.mgh \
 				--maskthresh 0.01
 		done
 	    fi

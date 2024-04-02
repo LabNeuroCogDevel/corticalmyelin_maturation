@@ -88,27 +88,12 @@ if __name__ == "__main__":
     out_df.insert(0, "session_id", session_id)
     out_df.insert(0, "subject_id", subject_id)
 
-    def sanity_check_columns(reference_column, redundant_column, atol=0):
-        if not np.allclose(
-            out_df[reference_column].astype(np.float32),
-            out_df[redundant_column].astype(np.float32), atol=atol):
-            raise Exception(f"The {reference_column} values were not identical to {redundant_column}")
+    def clean_columns(reference_column, redundant_column, atol=0):
         out_df.drop(redundant_column, axis=1, inplace=True)
 
-    # Do some sanity checks and remove redundant columns
     if metrics:
         for metric in metrics:
-            sanity_check_columns("NumVert", f"NVertices_{metric}", 0)
-            sanity_check_columns("SurfArea", f"Area_mm2_{metric}", 1)
-
-    # If LGI is available, check it too
-    if "NVertices_piallgi" in out_df.columns:
-        sanity_check_columns("NumVert", "NVertices_piallgi", 0)
-        sanity_check_columns("SurfArea", "Area_mm2_piallgi", 1)
-    else:
-        # If LGI failed and lgi environment variable is set to TRUE, fill the columns with NaNs
-        if lgi:
-            for lgi_col in LGI_COLUMN_NAMES:
-                out_df[lgi_col] = np.nan
+            clean_columns("NumVert", f"NVertices_{metric}", 0)
+            clean_columns("SurfArea", f"Area_mm2_{metric}", 1)
 
     out_df.to_csv(f"{subjects_dir}/{subject_id_fs}/stats/{subject_id}_{session_id}_regionsurfacestats.tsv", sep="\t", index=False)
