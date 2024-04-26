@@ -150,7 +150,7 @@ meanmyelin.wholebrain <- merge(meanmyelin.wholebrain, participants.scans, by = c
 
 #Compute outliers
 group.mean <- mean(meanmyelin.wholebrain$mean_myelin)
-group.sd <- IQR(meanmyelin.wholebrain$mean_myelin)
+group.sd <- sd(meanmyelin.wholebrain$mean_myelin)
 lowerbound <- group.mean-(4*group.sd) 
 upperbound <- group.mean+(4*group.sd)
 
