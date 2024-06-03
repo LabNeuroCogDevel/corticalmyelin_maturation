@@ -10,7 +10,7 @@ library(dplyr)
 #'@param region: name of the input.df column to use as the dependent variable in the gam
 #'@param smooth_var: name of the input.df column to fit a smooth function to 
 #'@param id_var: name of the input.df column to use as the random effects variable
-#'@param covariates: linear covariates to include in the gam model, can be set to "NA" if none
+#'@param covariates: linear covariates to include in the gam model. multiple covariates can be included here as "cov1 + cov2 + cov3" or can be set to "NA" for none
 #'@param random_intercepts: TRUE/FALSE as to whether the gam should include random intercepts for the id_var
 #'@param random_slopes: TRUE/FALSE as to whether the gam should include random slops for the id_var
 #'@param knots: value of k to use for the smooth_var s() term
@@ -228,7 +228,7 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
 #'@param smooth_var: name of the input.df column to fit a smooth function to 
 #'@param id_var: name of the input.df column to use as the random effects variable
 #'@param int_var: name of the input.df column to use as the factor in an interaction. Consider whether you want this to be an ordered factor!
-#'@param covariates: linear covariates to include in the gam model, can be set to "NA" if none
+#'@param covariates: linear covariates to include in the gam model. multiple covariates can be included here as "cov1 + cov2 + cov3" or can be set to "NA" for none
 #'@param random_intercepts: TRUE/FALSE as to whether the gam should include random intercepts for the id_var
 #'@param random_slopes: TRUE/FALSE as to whether the gam should include random slops for the id_var
 #'@param knots: value of k to use for the smooth_var s() term
@@ -298,6 +298,15 @@ gam.factorsmooth.interaction <- function(input.df, region, smooth_var, id_var, i
 
 #### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH A LINEAR COVARIATE OF INTEREST
 ##Function to fit a GAM with one smooth plus optional id-based random effect terms and a linear main effect for a covariate of interest, and save out statistics
+#'@param input.df: df with variables for modeling
+#'@param region: name of the input.df column to use as the dependent variable in the gam
+#'@param smooth_var: name of the input.df column to fit a smooth function to 
+#'@param id_var: name of the input.df column to use as the random effects variable
+#'@param covariates: linear covariates to include in the gam model. multiple covariates can be included here as "cov1 + cov2 + cov3" but the FIRST COVARIATE (cov1) must be the main effect of interest
+#'@param random_intercepts: TRUE/FALSE as to whether the gam should include random intercepts for the id_var
+#'@param random_slopes: TRUE/FALSE as to whether the gam should include random slops for the id_var
+#'@param knots: value of k to use for the smooth_var s() term
+#'@param set_fx: TRUE/FALSE as to whether to used fixed (T) or penalized (F) splines for the smooth_var s() term  
 gam.linearcovariate.maineffect <- function(input.df, region, smooth_var, id_var, covariates, random_intercepts = FALSE, random_slopes = FALSE, knots, set_fx = FALSE){
   
   ## MODEL FITTING ##
@@ -307,7 +316,15 @@ gam.linearcovariate.maineffect <- function(input.df, region, smooth_var, id_var,
   parcel <- region 
   region <- str_replace(region, "-", "_") #region for gam modeling
   gam.data[,id_var] <- as.factor(gam.data[,id_var]) #random effects variable must be a factor for mgcv::gam
-
+  if(covariates != "NA"){
+    covs <- str_split(covariates, pattern = "\\+", simplify = T)
+    for(cov in covs){
+      cov <- gsub(" ", "", cov)
+      if(class(gam.data[,cov]) == "character"){
+        gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
+      }
+    }}
+  
   #Fit the model
   if(random_intercepts == FALSE && random_slopes == FALSE){
     modelformula <- as.formula(sprintf("%s ~ s(%s, k = %s, fx = %s) + %s", region, smooth_var, knots, set_fx, covariates))
