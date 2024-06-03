@@ -4,8 +4,17 @@ library(gratia)
 library(tidyverse)
 library(dplyr)
 
-#### FIT A GENERALIZED ADDITIVE MIXED MODEL with mgcv::gam based random effects
-##Function to fit a GAM with one smooth plus id-based random effect term(s) and save out statistics, temporal characteristics, fitted values, zero-centered smooths, and derivatives
+#### FIT A GENERALIZED ADDITIVE (MIXED) MODEL with mgcv::gam 
+##Function to fit a GAM with one smooth plus optional id-based random effect terms and save out statistics, temporal characteristics, fitted values, zero-centered smooths, and derivatives
+#'@param input.df: df with variables for modeling
+#'@param region: name of the input.df column to use as the dependent variable in the gam
+#'@param smooth_var: name of the input.df column to fit a smooth function to 
+#'@param id_var: name of the input.df column to use as the random effects variable
+#'@param covariates: linear covariates to include in the gam model, can be set to "NA" if none
+#'@param random_intercepts: TRUE/FALSE as to whether the gam should include random intercepts for the id_var
+#'@param random_slopes: TRUE/FALSE as to whether the gam should include random slops for the id_var
+#'@param knots: value of k to use for the smooth_var s() term
+#'@param set_fx: TRUE/FALSE as to whether to used fixed (T) or penalized (F) splines for the smooth_var s() term  
 gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covariates, random_intercepts = FALSE, random_slopes = FALSE, knots, set_fx = FALSE){
   
   ## MODEL FITTING ##
@@ -15,45 +24,47 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   parcel <- region 
   region <- str_replace(region, "-", "_") #region for gam modeling
   gam.data[,id_var] <- as.factor(gam.data[,id_var]) #random effects variable must be a factor for mgcv::gam
-  covs <- str_split(covariates, pattern = "\\+", simplify = T)
-  for(cov in covs){
-    if(class(gam.data[,cov]) == "character"){
-      gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
-    }
-  }
+  if(covariates != "NA"){
+    covs <- str_split(covariates, pattern = "\\+", simplify = T)
+    for(cov in covs){
+     cov <- gsub(" ", "", cov)
+     if(class(gam.data[,cov]) == "character"){
+       gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
+      }
+  }}
   
   #Fit the model
   if(random_intercepts == FALSE && random_slopes == FALSE){
-    modelformula <- as.formula(sprintf("%s ~ s(%s, k = %s, fx = %s) + %s", region, smooth_var, knots, set_fx, covariates))
-    gam.model <- gam(modelformula, method = "REML", data = gam.data)
-    gam.results <- summary(gam.model)
+    if(covariates != "NA"){
+      modelformula <- as.formula(sprintf("%s ~ s(%s, k = %s, fx = %s) + %s", region, smooth_var, knots, set_fx, covariates))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(covariates == "NA"){
+      modelformula <- as.formula(sprintf("%s ~ s(%s, k = %s, fx = %s)", region, smooth_var, knots, set_fx))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
   }
   
   if(random_intercepts == TRUE){
-    modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + %6$s", region, smooth_var, knots, set_fx, id_var, covariates))
-    gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
-    gam.results <- summary(gam.model)
-  }
-  if(random_slopes == TRUE){
-    modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + s(%5$s, %2$s, bs = 're') + %6$s", region, smooth_var, knots, set_fx, id_var, covariates))
-    gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
-    gam.results <- summary(gam.model)
+    if(covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + %6$s", region, smooth_var, knots, set_fx, id_var, covariates))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're')", region, smooth_var, knots, set_fx, id_var))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
   }
   
-  #Fit a null model without a smooth for smooth_var
-    nullmodel <- as.formula(sprintf("%s ~ %s", region, covariates)) #no smooth term
-    gam.nullmodel <- gam(nullmodel, method = "REML", data = gam.data)
-    gam.nullmodel.results <- summary(gam.nullmodel)
-    
-  if(random_intercepts == TRUE){
-    nullmodel <- as.formula(sprintf("%1$s ~ s(%2$s, bs = 're') + %3$s", region, id_var, covariates))
-    gam.nullmodel <- gam(nullmodel, method = "REML", family = gaussian(link = "identity"), data = gam.data)
-    gam.nullmodel.results <- summary(gam.nullmodel)
-  }
   if(random_slopes == TRUE){
-    nullmodel <- as.formula(sprintf("%1$s ~  s(%2$s, bs = 're') + s(%2$s, %3$s, bs = 're') + %4$s", region, id_var, smooth_var, covariates))
-    gam.nullmodel <- gam(nullmodel, method = "REML", family = gaussian(link = "identity"), data = gam.data)
-    gam.nullmodel.results <- summary(gam.nullmodel)
+    if(covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + s(%5$s, %2$s, bs = 're') + %6$s", region, smooth_var, knots, set_fx, id_var, covariates))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + s(%5$s, %2$s, bs = 're')", region, smooth_var, knots, set_fx, id_var))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
   }
   
   ## PREDICTION DATA ## 
@@ -86,11 +97,6 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   
   ## MODEL STATISTICS ##
   
-  #Model summary outputs
-  #F value for the smooth term and GAM-based significance of the smooth term
-  gam.smooth.F <- gam.results$s.table[1,3] #first row is s(smooth_var), third entry is F
-  gam.smooth.pvalue <- gam.results$s.table[1,4] #first row is s(smooth_var), fourth entry is p-value
-  
   #GAM derivatives
   #Get derivatives of the smooth function using finite differences
   derv <- derivatives(gam.model, term = sprintf('s(%s)',smooth_var), data = pred, interval = "simultaneous", unconditional = F) #derivative at 200 indices of smooth_var with a simultaneous CI
@@ -98,21 +104,16 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   derv <- derv %>% #add "sig" column (TRUE/FALSE) to derv
     mutate(sig = !(0 > lower & 0 < upper)) #derivative is sig if the lower CI is not < 0 while the upper CI is > 0 (i.e., when the CI does not include 0)
   derv$sig_deriv = derv$derivative*derv$sig #add "sig_deriv derivatives column where non-significant derivatives are set to 0
-  
-  #Calculate the magnitude and (alt-approach) significance of the smooth_var term by comparing full and reduced models
-  ##Full versus reduced model anova p-value
-  anova.smooth.pvalue <- anova.gam(gam.nullmodel,gam.model,test='F')$`Pr(>F)`[2]
-  
-  #Signed partial Rsq
-  ### effect size
-  sse.model <- sum((gam.model$y - gam.model$fitted.values)^2)
-  sse.nullmodel <- sum((gam.nullmodel$y - gam.nullmodel$fitted.values)^2)
-  partialRsq <- (sse.nullmodel - sse.model)/sse.nullmodel
-  ### effect direction
   mean.derivative <- mean(derv$derivative)
-  if(mean.derivative < 0){ #if the average derivative is less than 0, make the effect size estimate negative
-    partialRsq <- partialRsq*-1}
   
+  #Model summary outputs
+  #Signed F value for the smooth term and GAM-based significance of the smooth term
+  gam.smooth.F <- gam.results$s.table[1,3] #first row is s(smooth_var), third entry is F
+  if(mean.derivative < 0){ #if the average derivative is less than 0, make the effect size estimate negative
+    gam.smooth.F <- gam.smooth.F*-1}
+  
+  gam.smooth.pvalue <- gam.results$s.table[1,4] #first row is s(smooth_var), fourth entry is p-value
+
   #Derivative-based temporal characteristics
   #Age of developmental change onset
   if(sum(derv$sig) > 0){ #if derivative is significant at at least 1 age
@@ -188,9 +189,9 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
     change.offset <- NA}  
   
   gam.statistics <- data.frame(region = as.character(parcel), GAM.smooth.Fvalue = as.numeric(gam.smooth.F), GAM.smooth.pvalue = as.numeric(gam.smooth.pvalue), 
-                                   GAM.smooth.partialR2 = as.numeric(partialRsq), Anova.smooth.pvalue = as.numeric(anova.smooth.pvalue), smooth.change.onset = as.numeric(change.onset),
-                                   smooth.peak.change = as.numeric(peak.change), smooth.decrease.onset = as.numeric(decrease.onset), smooth.decrease.offset = as.numeric(decrease.offset),
-                                   smooth.increase.onset = as.numeric(increase.onset), smooth.increase.offset = as.numeric(increase.offset), smooth.last.change = as.numeric(change.offset))
+                                   smooth.change.onset = as.numeric(change.onset), smooth.peak.change = as.numeric(peak.change), smooth.decrease.onset = as.numeric(decrease.onset), 
+                                   smooth.decrease.offset = as.numeric(decrease.offset), smooth.increase.onset = as.numeric(increase.onset), 
+                                   smooth.increase.offset = as.numeric(increase.offset), smooth.last.change = as.numeric(change.offset))
  
   
   ## MODEL FITTED VALUES ##
@@ -218,3 +219,46 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   names(gam.results) <- list("gam.statistics", "gam.fittedvalues", "gam.smoothestimates", "gam.derivatives")
   return(gam.results)
 }
+
+
+#### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH A CONTINUOUS COVARIATE OF INTEREST
+##Function to fit a GAM with one smooth plus optional id-based random effect terms and a linear main effect for a covariate of interest, and save out statistics
+gam.linearcovariate.maineffect <- function(input.df, region, smooth_var, id_var, covariates, random_intercepts = FALSE, random_slopes = FALSE, knots, set_fx = FALSE){
+  
+  ## MODEL FITTING ##
+  
+  #Format input data
+  gam.data <- input.df #df for gam modeling
+  parcel <- region 
+  region <- str_replace(region, "-", "_") #region for gam modeling
+  gam.data[,id_var] <- as.factor(gam.data[,id_var]) #random effects variable must be a factor for mgcv::gam
+
+  #Fit the model
+  if(random_intercepts == FALSE && random_slopes == FALSE){
+    modelformula <- as.formula(sprintf("%s ~ s(%s, k = %s, fx = %s) + %s", region, smooth_var, knots, set_fx, covariates))
+    gam.model <- gam(modelformula, method = "REML", data = gam.data)
+    gam.results <- summary(gam.model)
+  }
+  
+  if(random_intercepts == TRUE){
+    modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + %6$s", region, smooth_var, knots, set_fx, id_var, covariates))
+    gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+    gam.results <- summary(gam.model)
+  }
+  if(random_slopes == TRUE){
+    modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, bs = 're') + s(%5$s, %2$s, bs = 're') + %6$s", region, smooth_var, knots, set_fx, id_var, covariates))
+    gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+    gam.results <- summary(gam.model)
+  }
+  
+  #GAM statistics
+  #t-value for the covariate of interest term and GAM-based significance of this term
+  gam.cov.tvalue <- gam.results$p.table[2,3]
+  #GAM based significance of the term
+  gam.cov.pvalue <- gam.results$p.table[2,4]
+  
+  gam.results <- data.frame(region = as.character(parcel), GAM.maineffect.tvalue = as.numeric(gam.cov.tvalue), GAM.maineffect.pvalue = as.numeric(gam.cov.pvalue))
+  return(gam.results)
+}
+  
+  
