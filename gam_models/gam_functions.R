@@ -245,11 +245,12 @@ gam.factorsmooth.interaction <- function(input.df, region, smooth_var, id_var, i
   if(covariates != "NA"){
     covs <- str_split(covariates, pattern = "\\+", simplify = T)
     for(cov in covs){
-      cov <- gsub(" ", "", cov)
-      if(class(gam.data[,cov]) == "character"){
-        gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
-      }
-    }}
+      if(cov != int_var){
+        cov <- gsub(" ", "", cov)
+        if(class(gam.data[,cov]) == "character"){
+          gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
+        }
+    }}}
   
   #Fit the model
   if(random_intercepts == FALSE && random_slopes == FALSE){
