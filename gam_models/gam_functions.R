@@ -18,6 +18,7 @@ library(dplyr)
 gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covariates, random_intercepts = FALSE, random_slopes = FALSE, knots, set_fx = FALSE){
   
   ## MODEL FITTING ##
+  set.seed(1) #for consistency in derivatives + derivative credible intervals
   
   #Format input data
   gam.data <- input.df #df for gam modeling
@@ -28,7 +29,7 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
     covs <- str_split(covariates, pattern = "\\+", simplify = T)
     for(cov in covs){
      cov <- gsub(" ", "", cov)
-     if(class(gam.data[,cov]) == "character"){
+     if(is.character(gam.data[, cov])){
        gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
       }
   }}
@@ -188,7 +189,7 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   if(sum(derv$sig) == 0){ 
     change.offset <- NA}  
   
-  gam.statistics <- data.frame(region = as.character(parcel), GAM.smooth.Fvalue = as.numeric(gam.smooth.F), GAM.smooth.pvalue = as.numeric(gam.smooth.pvalue), 
+  gam.statistics <- data.frame(orig_parcelname = as.character(parcel), GAM.smooth.Fvalue = as.numeric(gam.smooth.F), GAM.smooth.pvalue = as.numeric(gam.smooth.pvalue), 
                                    smooth.change.onset = as.numeric(change.onset), smooth.peak.change = as.numeric(peak.change), smooth.decrease.onset = as.numeric(decrease.onset), 
                                    smooth.decrease.offset = as.numeric(decrease.offset), smooth.increase.onset = as.numeric(increase.onset), 
                                    smooth.increase.offset = as.numeric(increase.offset), smooth.last.change = as.numeric(change.offset))
@@ -199,21 +200,21 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   #Generate predictions (fitted values) based on the gam model and predication data frame
   gam.fittedvalues <- fitted_values(object = gam.model, data = pred)
   gam.fittedvalues <- gam.fittedvalues %>% select(all_of(smooth_var), fitted, se, lower, upper)
-  gam.fittedvalues$region <- parcel
+  gam.fittedvalues$orig_parcelname <- parcel
   
   ## MODEL SMOOTH ESTIMATES ## 
   
   #Estimate the zero-averaged gam smooth function 
   gam.smoothestimates <- smooth_estimates(object = gam.model, data = pred, smooth = sprintf('s(%s)',smooth_var))
   gam.smoothestimates <- gam.smoothestimates %>% select(age, est, se)
-  gam.smoothestimates$region <- parcel
+  gam.smoothestimates$orig_parcelname <- parcel
   
   ## MODEL DERIVATIVES ## 
   
   #Format derv dataframe to output
   gam.derivatives <- derv %>% select(data, derivative, lower, upper, sig, sig_deriv)
   names(gam.derivatives) <- c(sprintf("%s", smooth_var), "derivative", "lower", "upper", "significant", "significant.derivative")
-  gam.derivatives$region <- parcel
+  gam.derivatives$orig_parcelname <- parcel
   
   gam.results <- list(gam.statistics, gam.fittedvalues, gam.smoothestimates, gam.derivatives)
   names(gam.results) <- list("gam.statistics", "gam.fittedvalues", "gam.smoothestimates", "gam.derivatives")
@@ -247,7 +248,7 @@ gam.factorsmooth.interaction <- function(input.df, region, smooth_var, id_var, i
     for(cov in covs){
       if(cov != int_var){
         cov <- gsub(" ", "", cov)
-        if(class(gam.data[,cov]) == "character"){
+        if(is.character(gam.data[, cov])){
           gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
         }
     }}}
@@ -293,7 +294,7 @@ gam.factorsmooth.interaction <- function(input.df, region, smooth_var, id_var, i
   gam.int.pvalue <- gam.results$s.table[2,4]
   
   interaction.stats <- data.frame(as.character(parcel), as.numeric(gam.int.F), as.numeric(gam.int.pvalue))
-  colnames(interaction.stats) <- c("tract", "GAM.int.Fvalue", "GAM.int.pvalue")
+  colnames(interaction.stats) <- c("orig_parcelname", "GAM.int.Fvalue", "GAM.int.pvalue")
   return(interaction.stats)
 }
 
@@ -321,7 +322,7 @@ gam.linearcovariate.maineffect <- function(input.df, region, smooth_var, id_var,
     covs <- str_split(covariates, pattern = "\\+", simplify = T)
     for(cov in covs){
       cov <- gsub(" ", "", cov)
-      if(class(gam.data[,cov]) == "character"){
+      if(is.character(gam.data[, cov])){
         gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
       }
     }}
@@ -350,7 +351,7 @@ gam.linearcovariate.maineffect <- function(input.df, region, smooth_var, id_var,
   #GAM based significance of the term
   gam.cov.pvalue <- gam.results$p.table[2,4]
   
-  gam.results <- data.frame(region = as.character(parcel), GAM.maineffect.tvalue = as.numeric(gam.cov.tvalue), GAM.maineffect.pvalue = as.numeric(gam.cov.pvalue))
+  gam.results <- data.frame(orig_parcelname = as.character(parcel), GAM.maineffect.tvalue = as.numeric(gam.cov.tvalue), GAM.maineffect.pvalue = as.numeric(gam.cov.pvalue))
   return(gam.results)
 }
   
