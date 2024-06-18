@@ -232,7 +232,6 @@ regional.myelin.alldepths <- lapply(myelin.glasser.7T, function(depth) {
 
 ## Regional R1 Distributions by Depth 
 
-
 ```{r, warning = F}
 regional.myelin.alldepths <-  do.call(rbind, regional.myelin.alldepths) #regional mean R1 at all depths
 regional.myelin.alldepths$depth <- substr(row.names(regional.myelin.alldepths), 1, 7) #assign depth variable
@@ -273,16 +272,16 @@ for(this.depth in c(unique(regional.myelin.alldepths$depth))){
 
 ## R1 Myelin Profile in Individual Regions 
 
-```{r, message = F}
+Group Average Profiles
+
+```{r message=FALSE, include=FALSE}
 area4.myelin.alldepths <- regional.myelin.alldepths %>% filter(orig_parcelname == "L_4_ROI" | orig_parcelname == "R_4_ROI")
 area46.myelin.alldepths <- regional.myelin.alldepths %>% filter(orig_parcelname == "L_46_ROI" | orig_parcelname == "R_46_ROI")
 areaa24.myelin.alldepths <- regional.myelin.alldepths %>% filter(orig_parcelname == "L_a24_ROI" | orig_parcelname == "R_a24_ROI")
 
-
 ggplot() +
-  geom_smooth(data = area4.myelin.alldepths, aes(x = mean.R1, y = depth, group = orig_parcelname), color = myelin.colorbar[4], se = F, size = .5) + 
+  geom_smooth(data = area4.myelin.alldepths, aes(x = mean.R1, y = depth, group = orig_parcelname), color = myelin.colorbar[4], se = F, linewidth = .5) + 
   theme_classic() +
-  scale_fill_manual(values = depth_colorbar) +
   scale_x_continuous(breaks = c(0.54, 0.57, 0.60, 0.63, 0.66), limits = c(0.54, 0.67)) +
   xlab("\nR1") +
   ylab("Cortical Depth\n") +
@@ -295,11 +294,9 @@ ggplot() +
   axis.ticks = element_line(linewidth = .2)) 
 ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area4_profile.pdf", device = "pdf", dpi = 500, width = 2.4, height = 1.25)
 
-
 ggplot() +
-  geom_smooth(data = area46.myelin.alldepths, aes(x = mean.R1, y = depth, group = orig_parcelname), color = myelin.colorbar[3], se = F, size = .5) + 
+  geom_smooth(data = area46.myelin.alldepths, aes(x = mean.R1, y = depth, group = orig_parcelname), color = myelin.colorbar[3], se = F, linewidth = .5) + 
   theme_classic() +
-  scale_fill_manual(values = depth_colorbar) +
   scale_x_continuous(breaks = c(0.51, 0.53, 0.55, 0.57, 0.59), limits = c(0.50, 0.605)) +
   xlab("\nR1") +
   ylab("Cortical Depth\n") +
@@ -312,11 +309,9 @@ ggplot() +
   axis.ticks = element_line(linewidth = .2)) 
 ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area46_profile.pdf", device = "pdf", dpi = 500, width = 2.4, height = 1.25)
 
-
 ggplot() +
-  geom_smooth(data = areaa24.myelin.alldepths, aes(x = mean.R1, y = depth, group = orig_parcelname), color = myelin.colorbar[2], se = F, size = .5) + 
+  geom_smooth(data = areaa24.myelin.alldepths, aes(x = mean.R1, y = depth, group = orig_parcelname), color = myelin.colorbar[2], se = F, linewidth = .5) + 
   theme_classic() +
-  scale_fill_manual(values = depth_colorbar) +
   scale_x_continuous(breaks = c(0.50, 0.52, 0.54, 0.56, 0.58), limits = c(0.495, 0.58)) +
   xlab("\nR1") +
   ylab("Cortical Depth\n") +
@@ -328,6 +323,67 @@ ggplot() +
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Areaa24_profile.pdf", device = "pdf", dpi = 500, width = 2.4, height = 1.25)
+```
+
+```{r, message = F}
+examplar.areas.alldepth <- rbind(area4.myelin.alldepths, area46.myelin.alldepths, areaa24.myelin.alldepths)
+
+ggplot() +
+  geom_smooth(data = examplar.areas.alldepth, aes(x = mean.R1, y = depth, group = orig_parcelname, color= orig_parcelname), se = F, linewidth = .8) + 
+  scale_color_manual(values = c(myelin.colorbar[4], myelin.colorbar[3], myelin.colorbar[2], myelin.colorbar[4], myelin.colorbar[3], myelin.colorbar[2])) +
+  theme_classic() +
+  xlab("\nR1") +
+  ylab("Cortical Depth\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area_profiles_group.pdf", device = "pdf", dpi = 500, width = 2.54, height = 1.65)
+```
+
+Individual Profiles
+
+```{r}
+#R1 values in all regions at all depths for all participants
+myelin.glasser.7T.alldepths <-  do.call(rbind, myelin.glasser.7T)
+myelin.glasser.7T.alldepths$depth <- substr(row.names(myelin.glasser.7T.alldepths), 1, 7) #assign depth variable
+myelin.glasser.7T.alldepths$depth <- factor(myelin.glasser.7T.alldepths$depth, ordered = T, levels = ordered_depths)
+
+#Wide to long format
+cols_to_pivot <- names(myelin.glasser.7T.alldepths)[grepl("ROI", names(myelin.glasser.7T.alldepths))]
+myelin.glasser.7T.alldepths <- myelin.glasser.7T.alldepths %>% pivot_longer(cols = all_of(cols_to_pivot), names_to = "orig_parcelname", values_to = "R1")
+
+#Select exemplar regions of interest
+myelin.glasser.7T.alldepths <- myelin.glasser.7T.alldepths %>% filter(orig_parcelname == "L_4_ROI" | orig_parcelname == "R_4_ROI" | orig_parcelname == "L_46_ROI" | orig_parcelname == "R_46_ROI" | orig_parcelname == "L_a24_ROI" | orig_parcelname == "R_a24_ROI")
+
+#Format grouping variables
+myelin.glasser.7T.alldepths$subject_id <- as.factor(myelin.glasser.7T.alldepths$subject_id)
+myelin.glasser.7T.alldepths$orig_parcelname <- as.factor(myelin.glasser.7T.alldepths$orig_parcelname)
+
+#Plot for the oldest 3 participants 
+myelin.glasser.7T.alldepths <- myelin.glasser.7T.alldepths %>% filter(age > 32)
+```
+
+```{r, message = F}
+ggplot() +
+  geom_smooth(data = myelin.glasser.7T.alldepths, aes(x = R1, y = depth, color = orig_parcelname, group = interaction(orig_parcelname, subject_id)), se = F, linewidth = .4) + 
+  scale_color_manual(values = c(myelin.colorbar[4], myelin.colorbar[3], myelin.colorbar[2], myelin.colorbar[4], myelin.colorbar[3], myelin.colorbar[2])) +
+  theme_classic() +
+  xlab("\nR1") +
+  ylab("Cortical Depth\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area_profiles_individual.pdf", device = "pdf", dpi = 500, width = 2.54, height = 1.65)
 ```
 
 ## Region-wise R1 Correlations Between Depths
