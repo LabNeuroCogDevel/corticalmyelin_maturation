@@ -342,7 +342,7 @@ ggplot() +
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area_profiles_group.pdf", device = "pdf", dpi = 500, width = 2.54, height = 1.65)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area_profiles_group.pdf", device = "pdf", dpi = 500, width = 2.4, height = 1.65)
 ```
 
 Individual Profiles
@@ -383,7 +383,7 @@ ggplot() +
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area_profiles_individual.pdf", device = "pdf", dpi = 500, width = 2.54, height = 1.65)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Area_profiles_individual.pdf", device = "pdf", dpi = 500, width = 2.4, height = 1.65)
 ```
 
 ## Region-wise R1 Correlations Between Depths
