@@ -2,10 +2,11 @@
 title: "R1 Indexes Cortical Myeloarchitecture"
 author: "Valerie Jill Sydnor"
 output: 
-  rmdformats::robobook:
+  rmdformats::material:
     highlight: monochrome
     lightbox: true
     gallery: true
+    css: /Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/custom_css/myelinanatomy.css
 ---
 
 ```{r setup, include=FALSE}
@@ -19,6 +20,7 @@ library(ggcorrplot)
 library(cifti)
 library(purrr)
 library(scales)
+library(ggnewscale)
 extrafont::loadfonts()
 ```
 
@@ -35,6 +37,17 @@ Glasser regions list
 ```{r}
 glasser.regions <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist.csv")
 glasser.snr.exclude <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/SNR/glasser_SNR_exclusion.csv")
+glasser.frontal <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist_frontallobe.csv")
+```
+
+```{r}
+glasser.plotting <- glasser.regions
+glasser.plotting$cortex <- "cortex"
+glasser.plotting$cortex[glasser.plotting$orig_parcelname %in% glasser.snr.exclude$orig_parcelname] <- "exclude"
+glasser.plotting <- glasser.plotting %>% select(label, cortex)
+glasser.plotting <- rbind(glasser.plotting, data.frame(label = "rh_???", cortex = "exclude"))
+glasser.plotting <- rbind(glasser.plotting, data.frame(label = "lh_???", cortex = "exclude"))
+glasser.plotting <- glasser.plotting %>% filter(label != "lh_L_10pp")
 ```
 
 Depth-dependent R1 in HCP-MMP regions
@@ -238,6 +251,8 @@ regional.myelin.alldepths$depth <- substr(row.names(regional.myelin.alldepths), 
 regional.myelin.alldepths$depth <- factor(regional.myelin.alldepths$depth, ordered = T, levels = ordered_depths)
 
 regional.myelin.alldepths <-  regional.myelin.alldepths[!(regional.myelin.alldepths$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+regional.myelin.alldepths <- regional.myelin.alldepths[regional.myelin.alldepths$orig_parcelname %in% glasser.frontal$orig_parcelname,] #only studying frontal
+
 
 regional.myelin.alldepths %>% 
   ggplot(aes(x = mean.R1, y = depth)) +
@@ -245,7 +260,7 @@ regional.myelin.alldepths %>%
   stat_summary(fun = median, geom = "point", shape = 23, size = 2.25, color = "white") +
   theme_classic() +
   scale_fill_manual(values = depth_colorbar) +
-  scale_x_continuous(limits = c(0.495, 0.65), expand = c(0,0)) +
+  scale_x_continuous(limits = c(0.49, 0.65), expand = c(0,0)) +
   scale_y_discrete(expand = c(0, 0)) +
   xlab("\nR1") +
   ylab("Cortical Depth\n") +
@@ -257,16 +272,24 @@ regional.myelin.alldepths %>%
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Depthplot_regionalR1.pdf", device = "pdf", dpi = 500, width = 2.6, height = 4.9)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Depthplot_regionalR1_frontal.pdf", device = "pdf", dpi = 500, width = 2.6, height = 4.9)
 ```
 
 ```{r, message = F}
 for(this.depth in c(unique(regional.myelin.alldepths$depth))){
-  depth.plot <- regional.myelin.alldepths %>% filter(depth == this.depth) %>% filter(label != "lh_L_10pp") %>%
-  ggseg(.data = ., atlas = "glasser", mapping = aes(fill = mean.R1), colour=I("gray50"), size=I(.06)) + 
-    paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(0.5, 0.62), oob = squish, na.value = "gray75") + theme(legend.position = "none")
+  
+  depth.data <- regional.myelin.alldepths %>% filter(depth == this.depth) %>% filter(label != "lh_L_10pp")
+  
+  depth.plot <- ggplot() + 
+  geom_brain(data = depth.data, atlas = glasser,  mapping = aes(fill = mean.R1), colour=I("gray50"), size=I(.06)) + theme_classic() + theme(legend.position = "none") + 
+   paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(0.5, 0.62), oob = squish, na.value = "white") + theme(legend.position = "none") +
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
   print(depth.plot)
-  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/%s_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 4.75, height = 2.25)
+  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/%s_corticalmap_frontal.pdf", this.depth), device = "pdf", dpi = 500, width = 4.95, height = 2.25)
 }
 ```
 
@@ -396,7 +419,7 @@ depth.R1.cors <- cor(regional.myelin.alldepths.wide) # compute correlation matri
 ggcorrplot(corr = depth.R1.cors, method = "square", type = "upper", show.diag = T, lab = F, lab_size = ) +
 scale_fill_gradientn(colors = c("#edf6ff", "#c2d4ed", "#97adcc", "#345c91"))
   
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Depth_correlationmatrix.pdf", device = "pdf", dpi = 500, width = 4.4, height = 2.2)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1/Depth_correlationmatrix_frontal.pdf", device = "pdf", dpi = 500, width = 4.4, height = 2.2)
 ```
 
 
