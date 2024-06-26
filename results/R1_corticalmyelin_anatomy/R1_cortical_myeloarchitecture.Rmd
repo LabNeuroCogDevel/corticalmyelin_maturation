@@ -21,6 +21,8 @@ library(cifti)
 library(purrr)
 library(scales)
 library(ggnewscale)
+library(arrow)
+library(kableExtra)
 extrafont::loadfonts()
 ```
 
@@ -229,6 +231,52 @@ ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Fig
 
 # R1 Indexes Cortical Myelin Content Across Cortical Depths
 
+## Studying Cortical Depths Dominated by Signal from Cortical Gray Matter
+
+```{r}
+#Compute average frontal cortex volume fraction at each depth for final study participants
+cortexpve <- read_parquet("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/7T_BrainMechanisms_cortexpve.parquet") #parquet with cortex fraction measures
+cortexpve <- cortexpve %>% filter(atlas == "glasser") #just for glasser atlas 
+cortexpve <- cortexpve[!(cortexpve$StructName %in% glasser.snr.exclude$orig_parcelname),] #just for good regions
+cortexpve <- cortexpve[cortexpve$StructName %in% glasser.frontal$orig_parcelname,] #just for frontal lobe
+
+extract_depth_cortexpve <- function(mymeasure){
+  measure.df <- cortexpve %>% select(subject_id, session_id, StructName, all_of(mymeasure))
+  names(measure.df) <- c("subject_id", "session_id", "orig_parcelname", "cortex.fraction")
+  depth.cortexpve <- merge(measure.df, participants, by = c("subject_id", "session_id")) %>% select(cortex.fraction) %>% colMeans(.$cortex.fraction) #get cortex.fraction for final study participants only, and then average for this depth
+  return(depth.cortexpve)}
+
+pve.measures <- list("Mean_cortexpve.1.00%", "Mean_cortexpve.0.9%", "Mean_cortexpve.0.8%","Mean_cortexpve.0.7%","Mean_cortexpve.0.6%","Mean_cortexpve.0.5%","Mean_cortexpve.0.4%","Mean_cortexpve.0.3%","Mean_cortexpve.0.2%","Mean_cortexpve.0.1%", "Mean_cortexpve.0.0%") #measures to extract data for 
+cortexpve.frontallobe <- lapply(pve.measures, function(x) { 
+  extract_depth_cortexpve(x)}) 
+cortexpve.frontallobe <- do.call(rbind, cortexpve.frontallobe) %>% as.data.frame()
+cortexpve.frontallobe$depth <- c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k")
+cortexpve.frontallobe$depth <- factor(cortexpve.frontallobe$depth, ordered = T, levels = c("k", "j", "i", "h", "g", "f", "e", "d", "c", "b", "a"))
+kable(cortexpve.frontallobe)
+```
+
+```{r}
+cortexpve.frontallobe %>% 
+  ggplot(aes(x = cortex.fraction, y = depth)) +
+  geom_point(color = "#809dc4", shape = 15, size = 2) +
+  theme_classic() +
+  xlab("\nCortex Fraction") +
+  ylab("Cortical Depth\n") +
+  theme(
+  legend.position = "none",
+  axis.text.x = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.text.y = element_blank(),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks.x = element_line(linewidth = .2),
+  axis.ticks.y = element_blank()) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure1_supplementary/Depthplot_cortexfraction_frontal.pdf", device = "pdf", dpi = 500, width = 2.5, height = 2.5)
+```
+
+## Regional R1 Distributions by Depth 
+
 ```{r}
 #Compute mean R1 in each region at each cortical depth
 regional_means <- function(input.df){
@@ -242,8 +290,6 @@ regional.myelin.alldepths <- lapply(myelin.glasser.7T, function(depth) {
   regional_means(depth)
 })
 ```
-
-## Regional R1 Distributions by Depth 
 
 ```{r, warning = F}
 regional.myelin.alldepths <-  do.call(rbind, regional.myelin.alldepths) #regional mean R1 at all depths
