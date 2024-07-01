@@ -8,7 +8,7 @@ SCRIPT_DIR=$(realpath $SCRIPT_DIR)
 OUTPUT_DIR=/Volumes/Hera/Projects/corticalmyelin_development/Maps/AHBA_magicc/expression_maps
 wb_command=/Volumes/Hera/Projects/corticalmyelin_development/software/workbench/bin_linux64/wb_command
 
-for gene in MBP OLIG1 OLIG2 MAG MOG SLC17A6; do
+for gene in MBP OLIG1 OLIG2 MAG MOG; do
 	#create dense gene expression lh gifti
 	python $SCRIPT_DIR/create_AHBAmagicc_genemap.py $gene $OUTPUT_DIR
 	#create dense gene expression cifti (with lh data only)
