@@ -1,7 +1,12 @@
 ---
 title: "Sex Differences in Cortical Myelin Development"
 author: "Valerie Jill Sydnor"
-output: html_document
+output: 
+  rmdformats::material:
+    highlight: monochrome
+    lightbox: true
+    gallery: true
+    css: /Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/custom_css/myelindev.css
 ---
 
 ```{r setup, include=FALSE}
