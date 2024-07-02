@@ -1,0 +1,242 @@
+---
+title: "Depth-Dependent Myelin Development Trajectories: Supplementary Figures"
+author: "Valerie Jill Sydnor"
+output: 
+  rmdformats::material:
+    highlight: monochrome
+    lightbox: true
+    gallery: true
+    css: /Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/custom_css/myelindev.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyr)
+library(plyr)
+library(ggplot2)
+library(ggseg)
+library(ggsegGlasser)
+library(purrr)
+library(matrixStats)
+library(scales)
+library(cifti)
+library(ggpubr)
+library(paletteer)
+library(dplyr)
+library(ggnewscale)
+library(EnvStats)
+library(ggcorrplot)
+extrafont::loadfonts()
+source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/gam_models/gam_functions.R")
+```
+
+# Read in Data
+
+Glasser regions and assignments
+
+```{r}
+#Glasser region and label names
+glasser.regions <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist.csv")
+glasser.frontal <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist_frontallobe.csv")
+glasser.snr.exclude <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/SNR/glasser_SNR_exclusion.csv")
+```
+
+Depths
+
+```{r}
+depth.list <- c("depth_1", "depth_2", "depth_3", "depth_4", "depth_5", "depth_6", "depth_7")
+ordered_depths <- c("depth_7", "depth_6", "depth_5", "depth_4", "depth_3", "depth_2", "depth_1")
+depth_colorbar <- c("#004A38FF", "#006458FF", "#0093B0FF", "#8AABD5FF", "#C0BFE3FF", "#E0D5ECFF", "#F2E7F4FF")
+```
+
+GAM outputs: developmental effects
+
+```{r}
+setwd("/Volumes/Hera/Projects/corticalmyelin_development/gam_outputs/developmental_effects/") #output from /gam_models/fitgams_glasserregions_bydepth.R
+
+files <- list.files(getwd(), pattern = "age.RDS") 
+
+#read in files and assign to variables
+for(i in 1:length(files)){
+  
+  Rfilename <- gsub(".RDS", "", files[i])
+  
+  x <- readRDS(files[i]) 
+  assign(Rfilename, x) 
+  }
+```
+
+```{r}
+gam.results.alldepths <- list(depth1_gamstatistics_age, depth2_gamstatistics_age, depth3_gamstatistics_age, depth4_gamstatistics_age, depth5_gamstatistics_age, depth6_gamstatistics_age, depth7_gamstatistics_age)
+names(gam.results.alldepths) <- list("depth_1", "depth_2", "depth_3", "depth_4", "depth_5", "depth_6", "depth_7")
+```
+
+```{r}
+gam.smoothestimates.alldepths <- lapply(gam.results.alldepths, '[[', "gam.smoothestimates.df" )
+gam.smoothestimates.alldepths <- lapply(gam.smoothestimates.alldepths, function(depth){
+  depth <-  depth[!(depth$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+})
+```
+
+```{r}
+gam.smoothestimates.alldepths.long <- do.call(rbind, gam.smoothestimates.alldepths)
+gam.smoothestimates.alldepths.long <- gam.smoothestimates.alldepths.long %>% mutate(depth = as.factor(substr(row.names(gam.smoothestimates.alldepths.long), 1, 7))) #add depth as a column
+gam.smoothestimates.alldepths.long$depth <- factor(gam.smoothestimates.alldepths.long$depth, ordered = T, levels = ordered_depths)
+```
+
+# Depth-specific Myelin Maturational Trajectories by Region
+
+```{r}
+#Function to generate a ggseg cortical plot to indicate the location of region of interest 
+plot.cortical.region <- function(region, hemi, side, save = TRUE) {
+  
+  regional.ggseg.plot <- glasser.regions %>% filter(orig_parcelname == region) %>%
+  ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I("gray25"), size=I(.07)), position = c("stacked"), hemisphere = hemi, view = side) + 
+  theme_void() + 
+  labs(fill="") +
+  scale_fill_manual(values = c("#395F94"), na.value = "white") +
+  theme(legend.position = "none")
+  
+  regional.ggseg.plot
+  if(save == TRUE){
+  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3_supplementary/%s_corticalmap.pdf", region), device = "pdf", dpi = 500, width = .85, height = .55)
+  }
+  return(regional.ggseg.plot)
+}
+```
+
+```{r}
+#Function to plot age smooth functions in exemplar regions
+plot.depth.smooths <- function(region, y_ticks, save = T){
+
+  smooth.plot <- gam.smoothestimates.alldepths.long %>% filter(orig_parcelname == region) %>%
+  ggplot(., aes(x = age, y = est, group = depth, color = depth)) +
+  geom_line(linewidth = .4) +
+  theme_classic() +
+  xlab("\nAge (years)") +
+  ylab("R1 Trajectory (zero-centered)\n") +
+  scale_y_continuous(breaks = y_ticks) +
+  scale_color_manual(values = depth_colorbar) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+  
+  smooth.plot
+  if(save == TRUE){
+  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3_supplementary/%s_depthsmooths.pdf", region), dpi = 500, width = 2.5, height = 1.7)
+  }
+
+  return(smooth.plot)
+}
+```
+
+### Right 4
+
+```{r, message = F}
+plot.cortical.region(region = "R_4_ROI", hemi = "right", side = "lateral")
+plot.depth.smooths(region = "R_4_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
+```
+
+### Left 6mp
+
+```{r, message = F}
+plot.cortical.region(region = "L_6mp_ROI", hemi = "left", side = "medial")
+plot.depth.smooths(region = "L_6mp_ROI", y_ticks = c(-0.03, -0.02, -0.01, 0, 0.01))
+```
+
+### Left 6a
+
+```{r, message = F}
+plot.cortical.region(region = "L_6a_ROI", hemi = "left", side = "lateral")
+plot.depth.smooths(region = "L_6a_ROI", y_ticks = c(-0.02, 0, 0.02))
+```
+
+### Left FEF
+
+```{r, message = F}
+plot.cortical.region(region = "L_FEF_ROI", hemi = "left", side = "lateral")
+plot.depth.smooths(region = "L_FEF_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
+```
+
+### Right 24dd
+
+```{r, message = F}
+plot.cortical.region(region = "R_24dv_ROI", hemi = "right", side = "medial")
+plot.depth.smooths(region = "R_24dv_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
+```
+
+### Right 55b
+
+```{r, message = F}
+plot.cortical.region(region = "R_55b_ROI", hemi = "right", side = "lateral")
+plot.depth.smooths(region = "R_55b_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
+```
+
+### Right IFSp
+
+```{r, message = F}
+plot.cortical.region(region = "R_IFSp_ROI", hemi = "right", side = "lateral")
+plot.depth.smooths(region = "R_IFSp_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
+```
+
+### Left p9-46v
+
+```{r, message = F}
+plot.cortical.region(region = "L_p9-46v_ROI", hemi = "left", side = "lateral")
+plot.depth.smooths(region = "L_p9-46v_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
+```
+
+### Left 9a 
+
+```{r, message = F}
+plot.cortical.region(region = "L_9a_ROI", hemi = "left", side = "lateral")
+plot.depth.smooths(region = "L_9a_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
+```
+
+### Right p47r
+
+```{r, message = F}
+plot.cortical.region(region = "R_p47r_ROI", hemi = "right", side = "lateral")
+plot.depth.smooths(region = "R_p47r_ROI", y_ticks = c(-0.02, 0, 0.02))
+```
+
+### Left 9m
+
+```{r, message = F}
+plot.cortical.region(region = "L_9m_ROI", hemi = "left", side = "medial")
+plot.depth.smooths(region = "L_9m_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
+```
+
+### Left p32
+
+```{r, message = F}
+plot.cortical.region(region = "L_p32_ROI", hemi = "left", side = "medial")
+plot.depth.smooths(region = "L_p32_ROI", y_ticks = c( -0.01, 0, 0.01))
+```
+
+### Right 10r
+
+```{r, message = F}
+plot.cortical.region(region = "R_10r_ROI", hemi = "right", side = "medial")
+plot.depth.smooths(region = "R_10r_ROI", y_ticks = c( -0.01, 0, 0.01))
+```
+
+### Left a24pr
+
+```{r, message = F}
+plot.cortical.region(region = "L_a24pr_ROI", hemi = "left", side = "medial")
+plot.depth.smooths(region = "L_a24pr_ROI", y_ticks = c( -0.01, 0, 0.01, 0.02))
+```
+
+```{r, message = F}
+plot.cortical.region(region = "L_AVI_ROI", hemi = "left", side = "lateral")
+plot.depth.smooths(region = "L_AVI_ROI", y_ticks = c( -0.01, 0, 0.01))
+```
+
+
