@@ -21,6 +21,14 @@ myelin.glasser.7T <- lapply(myelin.glasser.7T, function(depth){
   return(depth)
 })
 
+#Superficial and deep R1 measures for final study sample
+SGIGmyelin.glasser.7T <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/SGIGR1_glasseratlas_finalsample.RDS")
+
+SGIGmyelin.glasser.7T <- lapply(SGIGmyelin.glasser.7T, function(depth){
+  depth <- depth %>% mutate(subject_id = as.factor(subject_id)) #factor
+  return(depth)
+})
+
 #Gam functions
 source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/gam_models/gam_functions.R")
 
@@ -71,6 +79,9 @@ run.gams.bydepth(input.depth.df = myelin.glasser.7T$depth_4, output.df.name = "d
 run.gams.bydepth(input.depth.df = myelin.glasser.7T$depth_5, output.df.name = "depth5_gamstatistics_age.RDS")
 run.gams.bydepth(input.depth.df = myelin.glasser.7T$depth_6, output.df.name = "depth6_gamstatistics_age.RDS")
 run.gams.bydepth(input.depth.df = myelin.glasser.7T$depth_7, output.df.name = "depth7_gamstatistics_age.RDS")
+
+run.gams.bydepth(input.depth.df = SGIGmyelin.glasser.7T$superficial, output.df.name = "superficialcortex_gamstatistics_age.RDS")
+run.gams.bydepth(input.depth.df = SGIGmyelin.glasser.7T$deep, output.df.name = "deepcortex_gamstatistics_age.RDS")
 
 ## Age models covaried for sex
 
