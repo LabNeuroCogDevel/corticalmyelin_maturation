@@ -1,0 +1,130 @@
+---
+title: "Sex Differences in Cortical Myelin Development"
+author: "Valerie Jill Sydnor"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyr)
+library(plyr)
+library(ggplot2)
+library(ggseg)
+library(ggsegGlasser)
+library(arrow)
+library(purrr)
+library(goeveg)
+library(matrixStats)
+library(scales)
+library(cifti)
+library(ggpubr)
+library(arrow)
+library(ggcorrplot)
+library(moments)
+library(paletteer)
+library(EnvStats)
+library(PupillometryR)
+library(dplyr)
+```
+
+## Read in Data
+
+Glasser regions and assignments
+
+```{r}
+#Glasser region and label names for the frontal lobe
+glasser.frontal <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist_frontallobe.csv")
+glasser.snr.exclude <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/SNR/glasser_SNR_exclusion.csv")
+```
+
+Depths
+
+```{r}
+depth.list <- c("depth_1", "depth_2", "depth_3", "depth_4", "depth_5", "depth_6", "depth_7")
+ordered_depths <- c("depth_7", "depth_6", "depth_5", "depth_4", "depth_3", "depth_2", "depth_1")
+```
+
+GAM outputs: sex effects and age by sex interactions
+
+```{r}
+setwd("/Volumes/Hera/Projects/corticalmyelin_development/gam_outputs/sex_effects")
+
+files <- list.files(getwd()) 
+
+#read in files and assign to variables
+for(i in 1:length(files)){
+  
+  Rfilename <- gsub(".RDS", "", files[i])
+  
+  x <- readRDS(files[i]) 
+  colnames(x)[1] <- "orig_parcelname"
+  x <- merge(x, glasser.frontal, by = "orig_parcelname")
+  x <-  x[!(x$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+  assign(Rfilename, x) 
+  }
+```
+
+```{r}
+gam.sexeffects.alldepths <- list(depth1_sex_maineffects, depth2_sex_maineffects, depth3_sex_maineffects, depth4_sex_maineffects, depth5_sex_maineffects, depth6_sex_maineffects, depth7_sex_maineffects)
+names(gam.sexeffects.alldepths) <- depth.list
+```
+
+```{r}
+gam.sexinteractions.alldepths <- list(depth1_sex_ageinteraction, depth2_sex_ageinteraction, depth3_sex_ageinteraction, depth4_sex_ageinteraction, depth5_sex_ageinteraction, depth6_sex_ageinteraction, depth7_sex_ageinteraction)
+names(gam.sexinteractions.alldepths) <- depth.list
+```
+
+## Direction and Significance of Main Effects of Sex
+
+```{r}
+#Function to calculate the number of positive t-values (F > M in R1) and the number of significant main effects of sex post-FDR
+sexeffect.results <- function(depth){
+  sexeffects <- depth
+  n_roi <- nrow(sexeffects)
+  
+  #positive t values 
+  pos_t <- sexeffects %>% filter(GAM.maineffect.tvalue > 0) %>% nrow()
+  pos_t_percent <- round((pos_t/n_roi)*100, 2)
+  
+  #significant t values
+  sexeffects <- sexeffects %>% mutate(significant = p.adjust(sexeffects$GAM.maineffect.pvalue, method = c("fdr")) < 0.05)
+  sig_t <- sexeffects %>% filter(significant == TRUE) %>% nrow()
+  sig_t_percent <- round((sig_t/n_roi)*100, 2)
+                         
+  sprintf("%s percent of regions show a positive t-value, indiciating F have higher R1 than M. %s percent of regions show a significant main effect of sex on R1", pos_t_percent, sig_t_percent)
+}
+```
+
+```{r}
+lapply(gam.sexeffects.alldepths, function(depth){
+  sexeffect.results(depth)
+})
+```
+
+## Significance of Age by Sex Interactions
+
+
+
+```{r}
+#Function to calculate the number of significant age by sex interactions post-FDR
+sexinteractions.results <- function(depth){
+  sexeffects <- depth
+  n_roi <- nrow(sexeffects)
+
+  #significant F values
+  sexeffects <- sexeffects %>% mutate(significant = p.adjust(sexeffects$GAM.int.pvalue , method = c("fdr")) < 0.05)
+  sig_F <- sexeffects %>% filter(significant == TRUE) %>% nrow()
+  sig_F_percent <- round((sig_F/n_roi)*100, 2)
+                         
+  sprintf("%s percent of regions show a significant age by sex interactions", sig_F_percent)
+}
+```
+
+```{r}
+lapply(gam.sexinteractions.alldepths, function(depth){
+  sexinteractions.results(depth)
+})
+```
+
+
+
