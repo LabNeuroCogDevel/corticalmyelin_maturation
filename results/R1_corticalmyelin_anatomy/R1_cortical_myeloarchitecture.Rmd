@@ -84,8 +84,6 @@ MWF <- data.frame(MWF = MWF.cifti$data, orig_parcelname = names(MWF.cifti$Parcel
 #Myelin Basic Protein Gene Expression
 MBP.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/AHBA_magicc/expression_maps/source-magicc_desc-MBPexpression_space-fsLR_den-32k.pscalar.nii")
 MBP <- data.frame(MBP = MBP.cifti$data, orig_parcelname = names(MBP.cifti$Parcel))
-MBP <- rbind(MBP, MBP) #reflect gene expression across hemispheres
-MBP$orig_parcelname[1:180] <- glasser.regions$orig_parcelname[1:180]
 
 #Sensorimotor-Association Axis
 SAaxis.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/S-A_ArchetypalAxis/FSLRVertex/SensorimotorAssociation_Axis_parcellated/SensorimotorAssociation.Axis.Glasser360.pscalar.nii")
