@@ -97,6 +97,8 @@ df.list <- list(regionalaverage.myelin, MWF, MBP, SAaxis) #dfs to merge
 myelin.maps <- Reduce(function(x,y) merge(x,y, all=TRUE, sort=F), df.list) 
 myelin.maps <- merge(myelin.maps, glasser.regions, by = c("orig_parcelname"), sort = F)
 myelin.maps <- myelin.maps[!(myelin.maps$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+
+write.csv(myelin.maps, "/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/R1_corticalmyelin_anatomy/myelin_maps/myelin_maps.csv", quote = F, row.names = F)
 ```
 
 # R1 Indexes Cortical Myelin Content Across Cortical Regions
