@@ -1,7 +1,12 @@
 ---
 title: "Myelin Development Sensitivity Analysis: Cortical Curvature "
 author: "Valerie Jill Sydnor"
-output: html_document
+output: 
+  rmdformats::material:
+    highlight: monochrome
+    lightbox: true
+    gallery: true
+    css: /Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/custom_css/myelindev.css
 ---
 
 ```{r setup, include=FALSE}
@@ -51,7 +56,8 @@ Depths
 ```{r}
 depth.list <- c("depth_1", "depth_2", "depth_3", "depth_4", "depth_5", "depth_6", "depth_7")
 ordered_depths <- c("depth_7", "depth_6", "depth_5", "depth_4", "depth_3", "depth_2", "depth_1")
-depth_colorbar <- c("#004A38FF", "#006458FF", "#0093B0FF", "#8AABD5FF", "#C0BFE3FF", "#E0D5ECFF", "#F2E7F4FF")
+depth_colorbar <-  c("#004A38FF", "#006B63FF", "#008FA7FF", "#6992CC", "#A29DC4", "#C0BFE3", "#E2CFE5")
+depth_colorbar_reverse <-  c("#E2CFE5", "#C0BFE3", "#A29DC4", "#6992CC", "#008FA7FF", "#006B63FF", "#004A38FF")
 ```
 
 S-A Axis
@@ -190,7 +196,7 @@ for(this.depth in c("depth_1", "depth_7")){
   
   derivative.plot <- ggplot() + 
   geom_brain(data = regional.rate.depth, atlas = glasser, mapping = aes(fill = rate), colour=I("gray50"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
-  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(0.0007, 0.002), oob = squish, na.value = "white") +  
+  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(0.0005, 0.0022), oob = squish, na.value = "white") +  
   theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
   new_scale_fill() + 
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
@@ -305,7 +311,7 @@ for(this.depth in c("depth_1", "depth_7")){
   
   derivative.plot <- ggplot() + 
   geom_brain(data = regional.mat.depth, atlas = glasser, mapping = aes(fill = smooth.increase.offset), colour=I("gray50"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
-  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = 1, limits = c(25.5, 33.5), oob = squish, na.value = "white") +  
+  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = 1, limits = c(26, 34), oob = squish, na.value = "white") +  
   theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
   new_scale_fill() + 
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
@@ -389,6 +395,8 @@ gam.smoothestimates.alldepths.long$depth <- factor(gam.smoothestimates.alldepths
 ```{r}
 #Function to plot age smooth functions in exemplar regions
 plot.depth.smooths <- function(region, y_ticks){
+  
+  gam.smoothestimates.alldepths.long$depth <- factor(gam.smoothestimates.alldepths.long$depth, ordered = T, levels = depth.list)
 
   smooth.plot <- gam.smoothestimates.alldepths.long %>% filter(orig_parcelname == region) %>%
   ggplot(., aes(x = age, y = est, group = depth, color = depth)) +
@@ -398,7 +406,7 @@ plot.depth.smooths <- function(region, y_ticks){
   ylab("R1 Trajectory (zero-centered)\n") +
   scale_y_continuous(breaks = y_ticks) +
   scale_x_continuous(breaks = c(10, 20, 30)) +
-  scale_color_manual(values = depth_colorbar) +
+  scale_color_manual(values = depth_colorbar_reverse) +
   theme(
         legend.position = "none", 
         panel.grid.major = element_blank(),
