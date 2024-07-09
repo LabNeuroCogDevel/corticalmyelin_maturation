@@ -46,7 +46,8 @@ Depths
 ```{r}
 depth.list <- c("depth_1", "depth_2", "depth_3", "depth_4", "depth_5", "depth_6", "depth_7")
 ordered_depths <- c("depth_7", "depth_6", "depth_5", "depth_4", "depth_3", "depth_2", "depth_1")
-depth_colorbar <- c("#004A38FF", "#006458FF", "#0093B0FF", "#8AABD5FF", "#C0BFE3FF", "#E0D5ECFF", "#F2E7F4FF")
+depth_colorbar <-  c("#004A38FF", "#006B63FF", "#008FA7FF", "#6992CC", "#A29DC4", "#C0BFE3", "#E2CFE5")
+depth_colorbar_reverse <-  c("#E2CFE5", "#C0BFE3", "#A29DC4", "#6992CC", "#008FA7FF", "#006B63FF", "#004A38FF")
 ```
 
 GAM outputs: developmental effects
@@ -109,6 +110,8 @@ plot.cortical.region <- function(region, hemi, side, save = TRUE) {
 #Function to plot age smooth functions in exemplar regions
 plot.depth.smooths <- function(region, y_ticks, save = T){
 
+  gam.smoothestimates.alldepths.long$depth <- factor(gam.smoothestimates.alldepths.long$depth, ordered = T, levels = depth.list)
+  
   smooth.plot <- gam.smoothestimates.alldepths.long %>% filter(orig_parcelname == region) %>%
   ggplot(., aes(x = age, y = est, group = depth, color = depth)) +
   geom_line(linewidth = .4) +
@@ -116,7 +119,7 @@ plot.depth.smooths <- function(region, y_ticks, save = T){
   xlab("\nAge (years)") +
   ylab("R1 Trajectory (zero-centered)\n") +
   scale_y_continuous(breaks = y_ticks) +
-  scale_color_manual(values = depth_colorbar) +
+  scale_color_manual(values = depth_colorbar_reverse) +
   theme(
         legend.position = "none", 
         panel.grid.major = element_blank(),
