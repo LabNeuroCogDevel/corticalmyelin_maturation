@@ -61,7 +61,7 @@ myelin.glasser.7T <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/
 
 ```{r}
 ordered_depths <- c("depth_7", "depth_6", "depth_5", "depth_4", "depth_3", "depth_2", "depth_1")
-depth_colorbar <-  c("#004A38FF", "#006B63FF", "#008FA7FF", "#66A2CCFF", "#A29DC4", "#C0BFE3", "#E2CFE5")
+depth_colorbar <-  c("#004A38FF", "#006B63FF", "#008FA7FF", "#6992CC", "#A29DC4", "#C0BFE3", "#E2CFE5")
 ```
 
 Regional average R1 in HCP-MMP regions
