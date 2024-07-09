@@ -61,7 +61,7 @@ myelin.glasser.7T <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/
 
 ```{r}
 ordered_depths <- c("depth_7", "depth_6", "depth_5", "depth_4", "depth_3", "depth_2", "depth_1")
-depth_colorbar <- c("#004A38FF", "#006458FF", "#0093B0FF", "#8AABD5FF", "#C0BFE3FF", "#E0D5ECFF", "#F2E7F4FF")
+depth_colorbar <-  c("#004A38FF", "#006B63FF", "#008FA7FF", "#66A2CCFF", "#A29DC4", "#C0BFE3", "#E2CFE5")
 ```
 
 Regional average R1 in HCP-MMP regions
@@ -327,11 +327,11 @@ for(this.depth in c(unique(regional.myelin.alldepths$depth))){
   depth.data <- regional.myelin.alldepths %>% filter(depth == this.depth) %>% filter(label != "lh_L_10pp")
   
   depth.plot <- ggplot() + 
-  geom_brain(data = depth.data, atlas = glasser,  mapping = aes(fill = mean.R1), colour=I("gray50"), size=I(.06)) + theme_classic() + theme(legend.position = "none") + 
-   paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(0.5, 0.62), oob = squish, na.value = "white") + theme(legend.position = "none") +
+  geom_brain(data = depth.data, atlas = glasser,  mapping = aes(fill = mean.R1), colour=I("gray10"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
+   paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(0.48, 0.61), oob = squish, na.value = "white") + theme(legend.position = "none") +
   theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
   new_scale_fill() + 
-  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray10", 0)), size=I(0)) +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
   print(depth.plot)
