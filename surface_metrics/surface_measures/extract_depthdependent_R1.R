@@ -69,7 +69,7 @@ myelin.electrodes.7T <- lapply(myelin.electrodes.7T, function(depth){
 ### superficial depths
 SGmyelin.electrodes.7T <- do.call(rbind, myelin.electrodes.7T[1:3]) #merge data for top 3 depths
 SGmyelin.electrodes.7T$depth <- substr(row.names(SGmyelin.electrodes.7T), 1, 7) #assign depth
-cols_to_pivot <- names(SGmyelin.electrodes.7T)[16:75] #atlas region cols
+cols_to_pivot <- names(SGmyelin.electrodes.7T)[16:69] #atlas region cols
 SGmyelin.electrodes.7T.long <- SGmyelin.electrodes.7T %>% pivot_longer(cols = all_of(cols_to_pivot), names_to = "region", values_to = "R1") #long formatted df for grouping
 SGmyelin.electrodes.7T <- SGmyelin.electrodes.7T.long %>% group_by(subses, region) %>% #mean R1 in depths 1-3 for each region
   do(superficial_R1 = mean(.$R1)) %>% 
@@ -80,7 +80,7 @@ SGmyelin.electrodes.7T <- merge(SGmyelin.electrodes.7T, participants, by = "subs
 ### deep depths
 IGmyelin.electrodes.7T <- do.call(rbind, myelin.electrodes.7T[4:7]) #merge data for bottom 4 depths
 IGmyelin.electrodes.7T$depth <- substr(row.names(IGmyelin.electrodes.7T), 1, 7) #assign depth
-cols_to_pivot <- names(IGmyelin.electrodes.7T)[16:75] #atlas region cols
+cols_to_pivot <- names(IGmyelin.electrodes.7T)[16:69] #atlas region cols
 IGmyelin.electrodes.7T.long <- IGmyelin.electrodes.7T %>% pivot_longer(cols = all_of(cols_to_pivot), names_to = "region", values_to = "R1") 
 IGmyelin.electrodes.7T <- IGmyelin.electrodes.7T.long %>% group_by(subses, region) %>%
   do(deep_R1 = mean(.$R1)) %>% 
