@@ -165,9 +165,9 @@ fit.agesexinteraction.bydepth <- function(input.depth.df, output.df.name){
   
   names(input.depth.df) <- gsub("-", "_", names(input.depth.df))
   
-  #Run the gam.factorsmooth.interaction function on every region for R1 data in this input.depth.df
+  #Run the gam.agebysex.interaction function on every region for R1 data in this input.depth.df
   gam.agebysex.statistics <- lapply(glasser.regions$orig_parcelname, function(r){  #list of gam results, list elements are regions
-    gam.factorsmooth.interaction(input.df = input.depth.df, region = as.character(r), 
+    gam.agebysex.interaction(input.df = input.depth.df, region = as.character(r), 
                                    smooth_var = "age", id_var = "subject_id", int_var = "osex", covariates = "osex", 
                                    random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)}) 
   

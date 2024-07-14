@@ -234,7 +234,7 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
 #'@param random_slopes: TRUE/FALSE as to whether the gam should include random slops for the id_var
 #'@param knots: value of k to use for the smooth_var s() term
 #'@param set_fx: TRUE/FALSE as to whether to used fixed (T) or penalized (F) splines for the smooth_var s() term  
-gam.factorsmooth.interaction <- function(input.df, region, smooth_var, id_var, int_var, covariates, random_intercepts = FALSE, random_slopes = FALSE, knots, set_fx = FALSE){
+gam.agebysex.interaction <- function(input.df, region, smooth_var, id_var, int_var, covariates, random_intercepts = FALSE, random_slopes = FALSE, knots, set_fx = FALSE){
   
   ## MODEL FITTING ##
   
