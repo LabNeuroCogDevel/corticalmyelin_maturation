@@ -1123,14 +1123,14 @@ lapply(gam.statistics.allregions, function(depth){
 
 ## Whole-brain myelin maturation patterns in deep and superficial cortex
 
-```{r}
+```{r, warning = F, message = F}
 #Brain regions that exhibit deep cortex myelin maturation by the late 20s
 deepcortex.maturation <- lapply(gam.statistics.allregions, function(depth){
   depth <- depth %>% filter(smooth.increase.offset < 28) 
   return(depth)
 })
 
-deepcortex.maturation <- Reduce(intersect, lapply(deepcortex.maturation[4:7], `[[`, "orig_parcelname")) %>% as.data.frame %>% set_names("orig_parcelname") %>% merge(glasser.regions) %>% mutate(plot = "yes") %>% filter(label != "lh_L_10pp")
+deepcortex.maturation <- Reduce(intersect, lapply(deepcortex.maturation[4:7], `[[`, "orig_parcelname")) %>% as.data.frame %>% set_names("orig_parcelname") %>% merge(glasser.regions) %>% mutate(plot = "yes") %>% filter(label != "lh_L_10pp") %>% filter(grepl("rh_R", label))
 
 ggplot() +
    geom_brain(data = deepcortex.maturation, atlas = glasser,  mapping = aes(fill = plot), colour=I("gray40"), size=I(.08), hemi = "right") + theme_classic() + scale_fill_manual(values = depth_colorbar[1], na.value = "white") + 
@@ -1149,14 +1149,14 @@ glasser.earlysensory <- glasser.regions
 glasser.earlysensory$sensory <- ifelse(glasser.earlysensory$orig_parcelname %in% primary.early.sensoryregions, "yes", "no")
 ```
 
-```{r}
+```{r, warning = F, message = F}
 #Brain regions that exhibit protracted increases in superficial cortex myelin
 superficialcortex.maturation <- lapply(gam.statistics.allregions, function(depth){
   depth <- depth %>% filter(smooth.increase.offset > 28) 
   return(depth)
 })
 
-superficialcortex.maturation <- Reduce(intersect, lapply(superficialcortex.maturation[1:2], `[[`, "orig_parcelname")) %>% as.data.frame %>% set_names("orig_parcelname") %>% merge(glasser.regions) %>% mutate(plot = "yes") %>% filter(label != "lh_L_10pp")
+superficialcortex.maturation <- Reduce(intersect, lapply(superficialcortex.maturation[1:2], `[[`, "orig_parcelname")) %>% as.data.frame %>% set_names("orig_parcelname") %>% merge(glasser.regions) %>% mutate(plot = "yes") %>% filter(label != "lh_L_10pp") %>% filter(label != "lh_L_10pp") %>% filter(grepl("lh_L", label))
 
 ggplot() +
    geom_brain(data = superficialcortex.maturation, atlas = glasser,  mapping = aes(fill = plot), colour=I("gray40"), size=I(.08), hemi = "left") + theme_classic() + scale_fill_manual(values = depth_colorbar[5], na.value = "white") + 
