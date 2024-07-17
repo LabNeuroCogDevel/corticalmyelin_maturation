@@ -206,7 +206,7 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   
   #Estimate the zero-averaged gam smooth function 
   gam.smoothestimates <- smooth_estimates(object = gam.model, data = pred, smooth = sprintf('s(%s)',smooth_var))
-  gam.smoothestimates <- gam.smoothestimates %>% select(age, est, se)
+  gam.smoothestimates <- gam.smoothestimates %>% select(all_of(smooth_var), est, se)
   gam.smoothestimates$orig_parcelname <- parcel
   
   ## MODEL DERIVATIVES ## 
@@ -222,7 +222,7 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
 }
 
 
-#### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH A FACTOR-SMOOTH INTERACTION
+#### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH AN AGE BY TWO-FACTOR INTERACTION
 ##Function to fit a GAM with one smooth plus optional id-based random effect terms as well as a factor-smooth interaction of interest
 #'@param input.df: df with variables for modeling
 #'@param region: name of the input.df column to use as the dependent variable in the gam
@@ -355,4 +355,198 @@ gam.linearcovariate.maineffect <- function(input.df, region, smooth_var, id_var,
   return(gam.results)
 }
   
+#### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH A SMOOTH FOR A COVARIATE OF INTEREST
+##Function to fit a GAM with one smooth plus optional id-based random effect terms and an additional smooth for a covariate of interest, and save out statistics for the covariate smooth
+#'@param input.df: df with variables for modeling
+#'@param region: name of the input.df column to use as the dependent variable in the gam
+#'@param smooth_var: name of the input.df column to fit the first smooth function to
+#'@param smooth_var_knots: value of k to use for the smooth_var s() term
+#'@param smooth_covariate: name of the input.df column to fit the second smooth function to
+#'@param smooth_covariate_knots: value of k to use for the smooth_covariate s() term
+#'@param linear_covariates: linear covariates to include in the gam model. multiple covariates can be included or can be set to "NA"
+#'@param id_var: name of the input.df column to use as the random effects variable
+#'@param random_intercepts: TRUE/FALSE as to whether the gam should include random intercepts for the id_var
+#'@param set_fx: TRUE/FALSE as to whether to used fixed (T) or penalized (F) splines for the smooth_var s() term  
+gam.covariatesmooth.maineffect <- function(input.df, region, smooth_var, smooth_var_knots, smooth_covariate, smooth_covariate_knots, linear_covariates, id_var, random_intercepts = FALSE, set_fx = FALSE){
   
+  ## MODEL FITTING ##
+  
+  #Format input data
+  gam.data <- input.df #df for gam modeling
+  parcel <- region 
+  region <- str_replace(region, "-", "_") #region for gam modeling
+  gam.data[,id_var] <- as.factor(gam.data[,id_var]) #random effects variable must be a factor for mgcv::gam
+  if(linear_covariates != "NA"){
+    covs <- str_split(linear_covariates, pattern = "\\+", simplify = T)
+    for(cov in covs){
+      cov <- gsub(" ", "", cov)
+      if(is.character(gam.data[, cov])){
+        gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
+      }
+    }}
+  
+  #Fit the model
+  if(random_intercepts == FALSE){
+    if(linear_covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + %7$s", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots, linear_covariates))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(linear_covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s)", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
+  }
+  
+  if(random_intercepts == TRUE){
+    if(linear_covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + s(%7$s, bs = 're') + %8$s", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots, id_var,  linear_covariates))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(linear_covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + s(%7$s, bs = 're')", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots, id_var))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)
+    }
+  }
+  
+  ## PREDICTION DATA FRAME ##
+  
+  #Extract gam input data
+  df <- as.data.frame(unclass(gam.model$model), stringsAsFactors = TRUE)  #extract the data used to build the gam, i.e., a df of y + predictor values 
+  
+  #Create a prediction data frame
+  np <- 100 #predict at np increments of smooth_covariate. We will predict the value of y for different values of the covariate
+  thisPred <- data.frame(init = rep(0,np)) #initiate a prediction df 
+  
+  theseVars <- attr(gam.model$terms,"term.labels") #gam model predictors 
+  varClasses <- attr(gam.model$terms,"dataClasses") #classes of the model predictors and y measure
+  thisResp <- as.character(gam.model$terms[[2]]) #the measure to predict (y)
+  for (v in c(1:length(theseVars))) { #fill the prediction df with data for predictions. These data will be used to predict the output measure (y) at np increments of the smooth_var, holding other model terms constant
+    thisVar <- theseVars[[v]]
+    thisClass <- varClasses[thisVar]
+    if (thisVar == smooth_covariate) { 
+      thisPred[,smooth_covariate] = seq(min(df[,smooth_covariate],na.rm = T),max(df[,smooth_covariate],na.rm = T), length.out = np) #generate a range of np data points, from minimum of smooth term to maximum of smooth term
+    } else {
+      switch (thisClass,
+              "numeric" = {thisPred[,thisVar] = median(df[,thisVar])}, #make predictions based on median value
+              "character" = {thisPred[,thisVar] = levels(df[,thisVar])[[1]]}, #make predictions based on first level of char
+              "factor" = {thisPred[,thisVar] = levels(df[,thisVar])[[1]]}, #make predictions based on first level of factor 
+              "ordered" = {thisPred[,thisVar] = levels(df[,thisVar])[[1]]} #make predictions based on first level of ordinal variable
+      )
+    }
+  }
+  pred <- thisPred %>% select(-init) #smooth_var is constant (median) and we iterate over smooth_covariate for prediction
+  
+  
+  ## MODEL DERIVATIVES ## 
+  
+  #GAM derivatives
+  #Get derivatives of the smooth covariate using finite differences
+  derv <- derivatives(gam.model, term = sprintf('s(%s)', smooth_covariate), data = pred, interval = "simultaneous", unconditional = F) #derivative at indices of smooth_covariate with a simultaneous CI
+  #Identify derivative significance window(s)
+  derv <- derv %>% #add "sig" column (TRUE/FALSE) to derv
+    mutate(sig = !(0 > lower & 0 < upper)) #derivative is sig if the lower CI is not < 0 while the upper CI is > 0 (i.e., when the CI does not include 0)
+  derv$sig_deriv = derv$derivative*derv$sig #add "sig_deriv derivatives column where non-significant derivatives are set to 0
+  mean.derivative <- mean(derv$derivative)
+  
+  #Format derv dataframe to output
+  gam.derivatives <- derv %>% select(data, derivative, lower, upper, sig, sig_deriv)
+  names(gam.derivatives) <- c(sprintf("%s", smooth_covariate), "derivative", "lower", "upper", "significant", "significant.derivative")
+  gam.derivatives$orig_parcelname <- parcel
+  
+  ## MODEL STATISTICS ##
+  
+  #GAM statistics
+  #F-value for the smooth_covariate term, GAM-based significance of this term, and the mean derivative of the covariate smooth
+  gam.cov.Fvalue <- gam.results$s.table[2,3]
+  gam.cov.pvalue <- gam.results$s.table[2,4]
+  
+  gam.statistics <- data.frame(orig_parcelname = as.character(parcel), GAM.covsmooth.Fvalue = as.numeric(gam.cov.Fvalue), GAM.covsmooth.pvalue = as.numeric(gam.cov.pvalue), GAM.covsmooth.meaneffect = mean.derivative)
+  
+  ## MODEL FITTED VALUES ##
+  
+  #Generate predictions (fitted values) based on the gam model and predication data frame
+  gam.fittedvalues <- fitted_values(object = gam.model, data = pred) #predict values of y based on increments of smooth_covariate
+  gam.fittedvalues <- gam.fittedvalues %>% select(all_of(smooth_covariate), fitted, se, lower, upper)
+  gam.fittedvalues$orig_parcelname <- parcel
+  
+  ## MODEL SMOOTH ESTIMATES ## 
+  
+  #Estimate the zero-averaged gam smooth function 
+  gam.smoothestimates <- smooth_estimates(object = gam.model, data = pred, smooth = sprintf('s(%s)', smooth_covariate))
+  gam.smoothestimates <- gam.smoothestimates %>% select(all_of(smooth_covariate), est, se)
+  gam.smoothestimates$orig_parcelname <- parcel
+  
+  gam.results <- list(gam.statistics, gam.fittedvalues, gam.smoothestimates, gam.derivatives)
+  names(gam.results) <- list("gam.statistics", "gam.fittedvalues", "gam.smoothestimates", "gam.derivatives")
+  return(gam.results)
+}
+
+#### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH A FACTOR-SMOOTH INTERACTION FOR A COVARIATE OF INTEREST
+##Function to fit a GAM with one smooth plus optional id-based random effect terms and a factor-smooth interaction
+#'@param input.df: df with variables for modeling
+#'@param region: name of the input.df column to use as the dependent variable in the gam
+#'@param smooth_var: name of the input.df column to fit the first smooth function to
+#'@param smooth_var_knots: value of k to use for the smooth_var s() term
+#'@param smooth_covariate: name of the input.df column to fit the second smooth function to
+#'@param smooth_covariate_knots: value of k to use for the smooth_covariate s() term
+#'@param int_var: name of the input.df column to perform an interaction with, this should be a factor 
+#'@param linear_covariates: linear covariates to include in the gam model. multiple covariates can be included or can be set to "NA"
+#'@param id_var: name of the input.df column to use as the random effects variable
+#'@param random_intercepts: TRUE/FALSE as to whether the gam should include random intercepts for the id_var
+#'@param set_fx: TRUE/FALSE as to whether to used fixed (T) or penalized (F) splines for the smooth_var s() term  
+gam.factorsmooth.interaction <- function(input.df, region, smooth_var, smooth_var_knots, smooth_covariate, smooth_covariate_knots, int_var, linear_covariates, id_var, random_intercepts = FALSE, set_fx = FALSE){
+  
+  ## MODEL FITTING ##
+  
+  #Format input data
+  gam.data <- input.df #df for gam modeling
+  parcel <- region 
+  region <- str_replace(region, "-", "_") #region for gam modeling
+  gam.data[,id_var] <- as.factor(gam.data[,id_var]) #random effects variable must be a factor for mgcv::gam
+  if(linear_covariates != "NA"){
+    covs <- str_split(linear_covariates, pattern = "\\+", simplify = T)
+    for(cov in covs){
+      cov <- gsub(" ", "", cov)
+      if(is.character(gam.data[, cov])){
+        gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
+      }
+    }}
+  
+  #Fit the model
+  if(random_intercepts == FALSE){
+    if(linear_covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + s(%5$s, by = %7$s, k = %6$s, fx = %4$s) + %8$s", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots, int_var, linear_covariates))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(linear_covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + s(%5$s, by = %7$s, k = %6$s, fx = %4$s)", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots, int_var))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
+  }
+  
+  if(random_intercepts == TRUE){
+    if(linear_covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + s(%5$s, by = %7$s, k = %6$s, fx = %4$s) + s(%8$s, bs = 're') + %9$s", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots, int_var, id_var, linear_covariates))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(linear_covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + s(%5$s, by = %7$s, k = %6$s, fx = %4$s) + s(%8$s, bs = 're')", region, smooth_var, smooth_var_knots, set_fx, smooth_covariate, smooth_covariate_knots, int_var, id_var))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)
+    }
+  }
+  
+  
+  ## MODEL STATISTICS
+  #F-value and p-values for interaction term(s)
+  gam.smooth.stats <- gam.results$s.table %>% as.data.frame #convert smooth table to a df
+  gam.statistics <- gam.smooth.stats %>% filter(grepl(":", row.names(gam.smooth.stats))) #and extract interaction term(s) to save
+
+  return(gam.statistics)
+}
+
+
+
+
+
