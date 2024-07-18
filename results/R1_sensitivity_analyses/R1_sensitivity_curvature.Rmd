@@ -516,18 +516,18 @@ clusters <- kmeans_clusters$cluster
 kmeans.cluster.results <- data.frame(label = labels, cluster = as.factor(clusters))
 ```
 
-```{r}
+```{r, warning = F, message = F}
  ggplot() + 
    geom_brain(data = kmeans.cluster.results, atlas = glasser, mapping = aes(fill = cluster), colour=I("gray25"), size=I(.08)) + theme_classic() +
- scale_fill_manual(values = c(depth_colorbar[2], depth_colorbar[6], depth_colorbar[3]), na.value = "white") +  
+ scale_fill_manual(values = c("#96bfd6", "#c0b6d4", "#275887"), na.value = "white") +  
   theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
   new_scale_fill() + 
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
-  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+  scale_fill_manual(values = c(alpha("white", 0), "gray75"))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4_supplementary/Clusters_curvature.pdf", device = "pdf", dpi = 500, width = 3.5, height = 3.5)
 ```
 
-
-``
 
 
 
