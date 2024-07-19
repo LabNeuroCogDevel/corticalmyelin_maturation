@@ -157,7 +157,7 @@ gam.smoothestimates.allregions <- lapply(gam.smoothestimates.allregions, functio
 })
 ```
 
-# Myelin Matures Heterochronously and Hierarchically Across Prefrontal Cortical Depths
+# Frontal Cortex Myelin Developmental Trajectories Vary by Cortical Depth
 
 ## Frontal lobe developmental trajectory at each depth
 
@@ -356,7 +356,7 @@ theme(
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementary/Depth_trajectories_withdata.pdf", device = "pdf", dpi = 500, width = 2.7, height = 4.65)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementarya/Depth_trajectories_withdata.pdf", device = "pdf", dpi = 500, width = 2.7, height = 4.65)
 ```
 
 ```{r}
@@ -388,8 +388,189 @@ theme(
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementary/Depth_trajectories_allfits.pdf", device = "pdf", dpi = 500, width = 2.7, height = 4.65)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementarya/Depth_trajectories_allfits.pdf", device = "pdf", dpi = 500, width = 2.7, height = 4.65)
 ```
+
+## Robust longitudinal increases in frontal lobe R1 
+
+```{r}
+#Compute longitudinal change in frontal lobe R1 between paired longitudinal sessions, at each cortical depth
+compute_R1_longitudinalchange <- function(input.df){
+  
+  input.df$mp2rage.date <- ymd(input.df$mp2rage.date)
+  
+  #session-to-session raw longitudinal change in R1
+  R1.longitudinal.change <- input.df %>% group_by(subject_id) %>%
+    mutate(R1.change.raw = mean.R1 - lag(mean.R1)) %>% 
+    ungroup() %>% select(subject_id, session_id, age, mp2rage.session_number, mean.R1, R1.change.raw)
+  
+  #session-to-session longitudinal change in age
+  R1.longitudinal.change <- R1.longitudinal.change %>% group_by(subject_id) %>%
+    mutate(age.change = age - lag(age)) %>% 
+    ungroup() %>% select(subject_id, session_id, age, mp2rage.session_number, mean.R1, R1.change.raw, age.change)
+  
+  #midpoint between-session age
+  R1.longitudinal.change <- R1.longitudinal.change %>% group_by(subject_id) %>%
+    mutate(mean.age = (age + lag(age))/2) %>% 
+    ungroup() %>% select(subject_id, session_id, age, mp2rage.session_number, mean.R1, R1.change.raw, age.change, mean.age)
+  
+  #longitudinal change in R1 scaled by change in age (delta R1/ delta age = R1 change slope!)
+  R1.longitudinal.change <- R1.longitudinal.change %>% mutate(R1.change.slope = R1.change.raw/age.change)
+  
+  #remove subjects with a single timepoint only
+  R1.longitudinal.change <- R1.longitudinal.change %>% group_by(subject_id) %>% filter(n() > 1) %>% ungroup() 
+}
+
+myelin.frontallobe.longchange <- lapply(myelin.frontallobe.7T, function(depth){
+  compute_R1_longitudinalchange(input.df = depth)
+})
+```
+
+```{r}
+# >75% of longitudinal visits show an increase in frontal cortex R1 at each depth, with an average of 80.2% across depths
+lapply(myelin.frontallobe.longchange, function(depth){
+  R1.longincrease.percent <- round((sum(depth$R1.change.raw > 0, na.rm = T) / sum(!(is.na(depth$R1.change.raw))))*100, 2)
+  sprintf("%s percent of longitudinal visits show an increase in R1", R1.longincrease.percent)
+})
+```
+
+**Within-individual longitudinal slopes at exemplar depths**
+
+```{r}
+#Plot within-person R1 + slope at younger and older scans 
+myelin.frontallobe.longchange.alldepths <- do.call(rbind, myelin.frontallobe.longchange) #long df with all depths
+myelin.frontallobe.longchange.alldepths <- myelin.frontallobe.longchange.alldepths %>% mutate(depth = as.factor(substr(row.names(myelin.frontallobe.longchange.alldepths), 1, 7))) 
+myelin.frontallobe.longchange.alldepths$depth <- factor(myelin.frontallobe.longchange.alldepths$depth, ordered = T, levels = ordered_depths)
+
+scans.t1t2 <- myelin.frontallobe.longchange.alldepths %>% filter(depth == "depth_1" | depth == "depth_5" | depth ==  "depth_7") %>% filter(mp2rage.session_number < 3) #first get paired visits 1 and 2
+scans.t1t2$mp2rage.session_number[scans.t1t2$mp2rage.session_number == 1] <- "Younger" 
+scans.t1t2$mp2rage.session_number[scans.t1t2$mp2rage.session_number == 2] <- "Older"
+scans.t1t2$mp2rage.session_number <- factor(scans.t1t2$mp2rage.session_number, levels = c("Younger", "Older"))
+
+scans.t2t3 <- myelin.frontallobe.longchange.alldepths %>% filter(depth == "depth_1" | depth == "depth_5" | depth ==  "depth_7") %>% filter(mp2rage.session_number > 1) #next get paired visits 2 and 3
+scans.t2t3 <- scans.t2t3 %>% group_by(subject_id, depth) %>% filter(n() > 1) %>%  ungroup() # make sure we only plot paired data (no ridin solo)
+scans.t2t3$mp2rage.session_number[scans.t2t3$mp2rage.session_number == 2] <- "Younger"
+scans.t2t3$mp2rage.session_number[scans.t2t3$mp2rage.session_number == 3] <- "Older"
+scans.t2t3$mp2rage.session_number <- factor(scans.t2t3$mp2rage.session_number, levels = c("Younger", "Older"))
+
+
+ggplot() +
+  geom_point(data = scans.t1t2, aes(x = mp2rage.session_number, y = mean.R1, color = depth)) +
+  geom_line(data = scans.t1t2, aes(x = mp2rage.session_number, y = mean.R1, group = interaction(subject_id, depth), color = depth), linewidth = 0.25) + 
+  geom_point(data = scans.t2t3, aes(x = mp2rage.session_number, y = mean.R1, color = depth)) +
+  geom_line(data = scans.t2t3, aes(x = mp2rage.session_number, y = mean.R1, group = interaction(subject_id, depth), color = depth), linewidth = 0.25) + 
+  theme_classic() +
+  scale_x_discrete(expand = c(0.03, 0.03)) +
+  scale_color_manual(values = c(alpha("#004A38FF", 0.7), alpha("#008FA7FF", 0.7), alpha("#E2CFE5", 0.7))) +
+  xlab("\n") +
+  ylab("Frontal Cortex R1\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementaryb/Longitudinal_slopes.pdf", device = "pdf", dpi = 500, width = 2.65, height = 3.2)
+```
+
+**R1 slopes (rate of change) at each cortical depths**
+
+*All data: violin plots*
+
+```{r, warning = F, message = F}
+myelin.frontallobe.longchange.alldepths %>% 
+  ggplot(aes(x = R1.change.slope, y = depth, fill = depth)) +
+  geom_violin(aes(fill = depth), color = "white") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_classic() +
+  scale_fill_manual(values = depth_colorbar) +
+  xlab("\nR1 Rate of Change (slope)") +
+  ylab("Cortical Depth\n") +
+  scale_x_continuous(limits = c(-0.008, 0.022)) +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementaryb/R1slope_depthplot_violin.pdf", device = "pdf", dpi = 500, width = 2.6, height = 3.2)
+```
+
+*Depth means* 
+
+```{r}
+R1age.slope.longitudinal <- lapply(myelin.frontallobe.longchange, function(depth){
+  R1.age.slope <- mean(depth$R1.change.slope, na.rm = T)
+  return(R1.age.slope)
+})
+
+R1age.slope.longitudinal <- do.call(rbind, R1age.slope.longitudinal) %>% as.data.frame() %>% set_names("R1.change.slope")
+R1age.slope.longitudinal$depth <- factor(row.names(R1age.slope.longitudinal), ordered = T, levels = ordered_depths)
+
+R1age.slope.longitudinal %>% 
+  ggplot(aes(x = R1.change.slope, y = depth, fill = depth)) +
+  geom_point(shape = 23, size = 3.4, color = "white") +
+  theme_classic() +
+  scale_fill_manual(values = depth_colorbar) +
+  scale_x_continuous(limits = c(0.004, 0.0056)) +
+  xlab("\nR1 Rate of Change (slope)") +
+  ylab("Cortical Depth\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementaryb/R1slope_depthplot_meanpoint.pdf", device = "pdf", dpi = 500, width = 2.15, height = 1.7)
+```
+
+**Differences in within-individual rate of change by depth and age**
+
+```{r}
+myelin.frontallobe.longchange.alldepths$depth <- as.numeric(gsub(".*?_", "", myelin.frontallobe.longchange.alldepths$depth)) #format depth as numeric for modeling as a linear covariate
+myelin.frontallobe.longchange.alldepths <- myelin.frontallobe.longchange.alldepths %>% filter(!is.na(R1.change.slope)) #75 longitudinal visits for 7 depths
+myelin.frontallobe.longchange.alldepths <- as.data.frame(myelin.frontallobe.longchange.alldepths)
+
+summary(gam(R1.change.slope ~ s(mean.age, k = 4, fx = F) + s(subject_id, bs = "re") + depth, method = c("REML"), data = myelin.frontallobe.longchange.alldepths))
+```
+
+```{r}
+R1rate.by.age.model <- gam.statistics.smooths(input.df = myelin.frontallobe.longchange.alldepths, region = "R1.change.slope", smooth_var = "mean.age", id_var = "subject_id", covariates = "depth", random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)
+
+R1rate.by.age.model$gam.derivatives %>% filter(significant == TRUE) %>% select(mean.age) %>% max()
+```
+
+```{r, warning = F, message = F}
+R1rate.by.age.model$gam.fittedvalues$sig.deriv <- (R1rate.by.age.model$gam.fittedvalues$mean.age < 18.5)
+R1rate.by.age.model$gam.fittedvalues$sig.deriv.ages <- R1rate.by.age.model$gam.fittedvalues$mean.age*R1rate.by.age.model$gam.fittedvalues$sig.deriv #add a column that only includes ages when the change in R is significant within-individual
+R1rate.by.age.model$gam.fittedvalues$sig.deriv.ages[R1rate.by.age.model$gam.fittedvalues$sig.deriv.ages == 0] <- NA
+
+ggplot(R1rate.by.age.model$gam.fittedvalues, aes(x = mean.age, y = fitted)) +
+  geom_line(color = "black", linewidth = 1) + 
+  geom_line(aes(x = sig.deriv.ages, y = fitted), color = depth_colorbar[5], linewidth = 1) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 0.007)) +
+  xlab("Mean Age") + 
+  ylab("R1 Rate of Change (predicted)\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+  
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementaryb/R1slope_byage_trajectory.pdf", device = "pdf", dpi = 500, width = 2.07, height = 1.57)
+```
+
+
+# Myelin Maturation is Hierarchical Across Regions and Heterochronous Across Depths
 
 ## Number of significant regional effects at each depth
 
