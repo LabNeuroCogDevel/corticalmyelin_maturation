@@ -184,7 +184,7 @@ frontallobe.rate.alldepths %>%
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvature_depthplot_derivative.pdf", device = "pdf", dpi = 500, width = 1.3, height = 1.3)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Curvature_depthplot_derivative.pdf", device = "pdf", dpi = 500, width = 1.3, height = 1.3)
 ```
 
 **Depth-wise derivative brain plots**
@@ -204,67 +204,8 @@ for(this.depth in c("depth_1", "depth_7")){
   
   print(derivative.plot)
   
-ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvature_%s_rate_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.15, height = 1.7)
+ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Curvature_%s_rate_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.15, height = 1.7)
 }
-```
-
-**Depth correlation matrix**
-
-```{r, message = F}
-regional.rate.alldepths.wide <- regional.rate.alldepths %>% pivot_wider(id_cols = label, names_from = depth, values_from = rate) %>% select(-label)
-regional.rate.alldepths.wide <- regional.rate.alldepths.wide %>% select(depth_7, depth_6, depth_5, depth_4, depth_3, depth_2, depth_1) #order for plot
-depth.derivative.cors <- cor(regional.rate.alldepths.wide) # compute correlation matrix
-
-ggcorrplot(corr = depth.derivative.cors, method = "square", type = "upper", show.diag = T, lab = F) +
-scale_fill_gradientn(colors = c("white", "#CCDCED", "#BFD2E2", "#7B9FC6"), limits = c(0.7, 1))
-```
-
-**Coefficient of variation**
-
-```{r}
-rate.cov.bydepth <- data.frame(depth = factor(), cov = double())
-for(this.depth in c(unique(regional.rate.alldepths$depth))){
-  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
-  cov <- cv(depth.data$rate)
-  cov <- data.frame(depth = this.depth, cov = cov)
-  rate.cov.bydepth <- rbind(rate.cov.bydepth, cov)
-}
-rate.cov.bydepth
-```
-
-**S-A axis correlation**
-
-```{r}
-rate.SAaxis.bydepth <- data.frame(depth = factor(), SA.corr = double())
-for(this.depth in c(unique(regional.rate.alldepths$depth))){
-  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
-  depth.data <- merge(depth.data, S.A.axis)
-  corr <- cor(depth.data$SA.axis, depth.data$rate, method = c("spearman"), use = "complete.obs")
-  corr <- data.frame(depth = this.depth, SA.corr = corr)
-  rate.SAaxis.bydepth <- rbind(rate.SAaxis.bydepth, corr)
-}
-rate.SAaxis.bydepth
-```
-
-```{r}
-rate.SAaxis.bydepth$depth <- factor(rate.SAaxis.bydepth$depth, ordered = T, levels = ordered_depths)
-ggplot(rate.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
-  geom_bar(stat = "identity") +
-  theme_classic() +
-  xlab("\nS-A Axis Correlation") +
-  ylab("Cortical Depth\n") +
-  scale_x_continuous(breaks = c(-0.5, -0.25, 0), limits = c(-0.52, 0)) +
-  scale_fill_manual(values = depth_colorbar) +
-  theme(axis.text.y = element_text(angle = 45, hjust = 1)) +
-  theme(
-        legend.position = "none", 
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
-        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.line = element_line(linewidth = .2), 
-        axis.ticks = element_line(linewidth = .2))
 ```
 
 ## Regional age of maturation at each depth
@@ -299,7 +240,7 @@ frontallobe.maturation.alldepths %>%
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvature_depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 1.3, height = 1.3)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Curvature_depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 1.3, height = 1.3)
 ```
 
 **Depth-wise age of maturation brain plots**
@@ -319,67 +260,8 @@ for(this.depth in c("depth_1", "depth_7")){
   
   print(derivative.plot)
   
-ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvature_%s_maturation_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.15, height = 1.7)
+ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Curvature_%s_maturation_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.15, height = 1.7)
 }
-```
-
-**Depth correlation matrix**
-
-```{r, message = F}
-regional.maturation.alldepths.wide <- regional.maturation.alldepths %>% pivot_wider(id_cols = label, names_from = depth, values_from = smooth.last.change) %>% select(-label)
-regional.maturation.alldepths.wide <- regional.maturation.alldepths.wide %>% select(depth_7, depth_6, depth_5, depth_4, depth_3, depth_2, depth_1) #order for plot
-depth.maturation.cors <- cor(regional.maturation.alldepths.wide, use = "complete.obs") # compute correlation matrix
-
-ggcorrplot(corr = depth.maturation.cors, method = "square", type = "upper", show.diag = T, lab = F) +
-scale_fill_gradientn(colors = c("white", "#CCDCED", "#BFD2E2", "#7B9FC6"), limits = c(0.25, 1))
-```
-
-**Coefficient of variation**
-
-```{r}
-maturation.cov.bydepth <- data.frame(depth = factor(), cov = double())
-for(this.depth in c(unique(regional.rate.alldepths$depth))){
-  depth.data <- regional.maturation.alldepths %>% filter(depth == this.depth)
-  cov <- cv(depth.data$smooth.increase.offset, na.rm = T)
-  cov <- data.frame(depth = this.depth, cov = cov)
-  maturation.cov.bydepth <- rbind(maturation.cov.bydepth, cov)
-}
-maturation.cov.bydepth
-```
-
-**S-A axis correlation**
-
-```{r}
-maturation.SAaxis.bydepth <- data.frame(depth = factor(), SA.corr = double())
-for(this.depth in c(unique(regional.rate.alldepths$depth))){
-  depth.data <- regional.maturation.alldepths %>% filter(depth == this.depth)
-  depth.data <- merge(depth.data, S.A.axis)
-  corr <- cor(depth.data$SA.axis, depth.data$smooth.increase.offset, method = c("spearman"), use = "complete.obs")
-  corr <- data.frame(depth = this.depth, SA.corr = corr)
-  maturation.SAaxis.bydepth <- rbind(maturation.SAaxis.bydepth, corr)
-}
-maturation.SAaxis.bydepth
-```
-
-```{r}
-maturation.SAaxis.bydepth$depth <- factor(maturation.SAaxis.bydepth$depth, ordered = T, levels = ordered_depths)
-ggplot(maturation.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
-  geom_bar(stat = "identity") +
-  theme_classic() +
-  xlab("\nS-A Axis Correlation") +
-  ylab("Cortical Depth\n") +
-  scale_x_continuous(breaks = c(0, .1, .2, .3), limits = c(-0.05, 0.36)) +
-  scale_fill_manual(values = depth_colorbar) +
-  theme(axis.text.y = element_text(angle = 45, hjust = 1)) +
-  theme(
-        legend.position = "none", 
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
-        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.line = element_line(linewidth = .2), 
-        axis.ticks = element_line(linewidth = .2))
 ```
 
 # Depth-dependent Differences in Myelin Maturation Vary Across Regions
@@ -425,21 +307,21 @@ plot.depth.smooths <- function(region, y_ticks){
 
 ```{r}
 plot.depth.smooths(region = "L_4_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvature_Area4_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Curvature_Area4_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
 ```
 
 **Dorsolateral PFC (46)**
 
 ```{r}
 plot.depth.smooths(region = "L_46_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvature_Area46_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Curvature_Area46_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
 ```
 
 **Anterior Cingulate (a24)**
 
 ```{r}
 plot.depth.smooths(region = "L_a24_ROI", y_ticks = c(-0.01, 0, 0.01))
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvature_Areaa24_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Curvature_Areaa24_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
 ```
 
 ## Developmental trajectory curvature clusters 
@@ -525,7 +407,7 @@ kmeans.cluster.results <- data.frame(label = labels, cluster = as.factor(cluster
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
   scale_fill_manual(values = c(alpha("white", 0), "gray75"))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4_supplementary/Clusters_curvature.pdf", device = "pdf", dpi = 500, width = 3.5, height = 3.5)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5_supplementary/Clusters_curvature.pdf", device = "pdf", dpi = 500, width = 3.5, height = 3.5)
 ```
 
 

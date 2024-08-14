@@ -69,6 +69,15 @@ S.A.axis <- data.frame(SA.axis = rank(S.A.axis.cifti$data), orig_parcelname = na
 S.A.axis <- merge(S.A.axis, glasser.regions, by = "orig_parcelname")
 ```
 
+BigBrain Histology Gradient
+
+```{r, warning=F}
+#BigBrain histology-based cytoarchitecture differentiation gradient from Paquola et al., 2021, eLife
+bigbrain.cytoarchitecture.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_histologygradient/BigBrain.Histology.pscalar.nii")
+bigbrain <- data.frame(cytoarchitecture.gradient = bigbrain.cytoarchitecture.cifti$data, orig_parcelname = names(bigbrain.cytoarchitecture.cifti$Parcel))
+bigbrain <- merge(S.A.axis, glasser.regions, by = "orig_parcelname")
+```
+
 Neurosynth Term Scores
 
 ```{r}
@@ -569,8 +578,7 @@ ggplot(R1rate.by.age.model$gam.fittedvalues, aes(x = mean.age, y = fitted)) +
 ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2_supplementaryb/R1slope_byage_trajectory.pdf", device = "pdf", dpi = 500, width = 2.07, height = 1.57)
 ```
 
-
-# Myelin Maturation is Hierarchical Across Regions and Heterochronous Across Depths
+# Myelin Develops Heterochronously Across Cortical Depths
 
 ## Number of significant regional effects at each depth
 
@@ -663,8 +671,6 @@ depth.derivative.cors <- cor(regional.rate.alldepths.wide) # compute correlation
 
 ggcorrplot(corr = depth.derivative.cors, method = "square", type = "upper", show.diag = T, lab = F) +
 scale_fill_gradientn(colors = c("white", "#CCDCED", "#BFD2E2", "#7B9FC6"), limits = c(0.7, 1))
-
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2/Depth_correlationmatrix_derivative.pdf", device = "pdf", dpi = 500, width = 2.85, height = 2)
 ```
 
 ### Coefficient of variation
@@ -678,43 +684,6 @@ for(this.depth in c(unique(regional.rate.alldepths$depth))){
   rate.cov.bydepth <- rbind(rate.cov.bydepth, cov)
 }
 rate.cov.bydepth
-```
-
-### S-A axis correlation
-
-```{r}
-rate.SAaxis.bydepth <- data.frame(depth = factor(), SA.corr = double())
-for(this.depth in c(unique(regional.rate.alldepths$depth))){
-  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
-  depth.data <- merge(depth.data, S.A.axis)
-  corr <- cor(depth.data$SA.axis, depth.data$rate, method = c("spearman"), use = "complete.obs")
-  corr <- data.frame(depth = this.depth, SA.corr = corr)
-  rate.SAaxis.bydepth <- rbind(rate.SAaxis.bydepth, corr)
-}
-rate.SAaxis.bydepth
-```
-
-```{r}
-rate.SAaxis.bydepth$depth <- factor(rate.SAaxis.bydepth$depth, ordered = T, levels = ordered_depths)
-ggplot(rate.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
-  geom_bar(stat = "identity") +
-  theme_classic() +
-  xlab("\nS-A Axis Correlation") +
-  ylab("Cortical Depth\n") +
-  scale_x_continuous(breaks = c(-0.5, -0.25, 0), limits = c(-0.52, 0)) +
-  scale_fill_manual(values = depth_colorbar) +
-  theme(axis.text.y = element_text(angle = 45, hjust = 1)) +
-  theme(
-        legend.position = "none", 
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
-        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.line = element_line(linewidth = .2), 
-        axis.ticks = element_line(linewidth = .2))
-
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2/Derivative_SAaxis_plot.pdf", device = "pdf", dpi = 500, width = 2.05, height = 1.55)
 ```
 
 ## Regional age of maturation at each depth
@@ -782,8 +751,6 @@ depth.maturation.cors <- cor(regional.maturation.alldepths.wide, use = "complete
 
 ggcorrplot(corr = depth.maturation.cors, method = "square", type = "upper", show.diag = T, lab = F) +
 scale_fill_gradientn(colors = c("white", "#CCDCED", "#BFD2E2", "#7B9FC6"), limits = c(0.3, 1))
-
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2/Depth_correlationmatrix_maturation.pdf", device = "pdf", dpi = 500, width = 2.85, height = 2)
 ```
 
 ### Coefficient of variation
@@ -799,28 +766,43 @@ for(this.depth in c(unique(regional.rate.alldepths$depth))){
 maturation.cov.bydepth
 ```
 
-### S-A axis correlation
+
+# Myelin Development is Hierarchically Patterned in Superficial Cortex
+
+## Variation in myelin development is patterned along the S-A axis
 
 ```{r}
-maturation.SAaxis.bydepth <- data.frame(depth = factor(), SA.corr = double())
-for(this.depth in c(unique(regional.rate.alldepths$depth))){
-  depth.data <- regional.maturation.alldepths %>% filter(depth == this.depth)
-  depth.data <- merge(depth.data, S.A.axis)
-  corr <- cor(depth.data$SA.axis, depth.data$smooth.increase.offset, method = c("spearman"), use = "complete.obs")
-  corr <- data.frame(depth = this.depth, SA.corr = corr)
-  maturation.SAaxis.bydepth <- rbind(maturation.SAaxis.bydepth, corr)
-}
-maturation.SAaxis.bydepth
+SA.frontal <- S.A.axis %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) 
+
+ggplot() + 
+  geom_brain(data = SA.frontal, atlas = glasser, mapping = aes(fill = SA.axis), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
+  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = 1, limits = c(0, 400), oob = squish, na.value = "white") +  
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 ```
 
 ```{r}
-maturation.SAaxis.bydepth$depth <- factor(maturation.SAaxis.bydepth$depth, ordered = T, levels = ordered_depths)
-ggplot(maturation.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
+rate.SAaxis.bydepth <- data.frame(depth = factor(), SA.corr = double())
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
+  depth.data <- merge(depth.data, S.A.axis)
+  corr <- cor(depth.data$SA.axis, depth.data$rate, method = c("spearman"), use = "complete.obs")
+  corr <- data.frame(depth = this.depth, SA.corr = corr)
+  rate.SAaxis.bydepth <- rbind(rate.SAaxis.bydepth, corr)
+}
+rate.SAaxis.bydepth
+```
+
+```{r}
+rate.SAaxis.bydepth$depth <- factor(rate.SAaxis.bydepth$depth, ordered = T, levels = ordered_depths)
+ggplot(rate.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
   geom_bar(stat = "identity") +
   theme_classic() +
   xlab("\nS-A Axis Correlation") +
   ylab("Cortical Depth\n") +
-  scale_x_continuous(breaks = c(0, .1, .2, .3), limits = c(0, 0.3)) +
+  scale_x_continuous(breaks = c(-0.5, -0.25, 0), limits = c(-0.52, 0)) +
   scale_fill_manual(values = depth_colorbar) +
   theme(axis.text.y = element_text(angle = 45, hjust = 1)) +
   theme(
@@ -832,8 +814,87 @@ ggplot(maturation.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
         axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
+```
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure2/Maturation_SAaxis_plot.pdf", device = "pdf", dpi = 500, width = 2.05, height = 1.55)
+```{r}
+regional.rate.alldepths %>% filter(depth == "depth_1") %>% merge(., S.A.axis) %>% 
+  ggplot(., aes(x = SA.axis, y = rate)) + geom_point(size = .5) +
+  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[7], fill = "gray85") +
+  labs(x="\nS-A Axis (rank)", y=sprintf("Rate of Increase (derivative)\n")) +
+    theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+```
+
+## Variation in myelin development aligns with cytoarchitectural variation
+
+```{r}
+bigbrain.frontal <- bigbrain %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) 
+
+ggplot() + 
+  geom_brain(data = bigbrain.frontal, atlas = glasser, mapping = aes(fill = cytoarchitecture.gradient), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
+  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(-.3, .3), oob = squish, na.value = "white") +  
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+```
+
+```{r}
+rate.bigbrain.bydepth <- data.frame(depth = factor(), histology.corr = double())
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
+  depth.data <- merge(depth.data, bigbrain)
+  corr <- cor(depth.data$cytoarchitecture.gradient, depth.data$rate, method = c("spearman"), use = "complete.obs")
+  corr <- data.frame(depth = this.depth, histology.corr = corr)
+  rate.bigbrain.bydepth <- rbind(rate.bigbrain.bydepth, corr)
+}
+rate.bigbrain.bydepth
+```
+
+```{r}
+rate.bigbrain.bydepth$depth <- factor(rate.bigbrain.bydepth$depth, ordered = T, levels = ordered_depths)
+ggplot(rate.bigbrain.bydepth, aes(x = histology.corr, y = depth,  fill = depth)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  xlab("\nCytoarchitecture Axis Correlation") +
+  ylab("Cortical Depth\n") +
+  scale_x_continuous(breaks = c(0, 0.35, 0.7)) +
+  scale_fill_manual(values = depth_colorbar) +
+  theme(axis.text.y = element_text(angle = 45, hjust = 1)) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+```
+
+```{r}
+regional.rate.alldepths %>% filter(depth == "depth_1") %>% merge(., bigbrain) %>% 
+  ggplot(., aes(x = cytoarchitecture.gradient, y = rate)) + geom_point(size = .5) +
+  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[7], fill = "gray85") +
+  labs(x="\nCytoarchitecture Axis (rank)", y=sprintf("Rate of Increase (derivative)\n")) +
+    theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
 ```
 
 # Depth-dependent Differences in Myelin Maturational Profiles Vary Across Prefrontal Cortical Zones
@@ -884,12 +945,12 @@ ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I
   scale_fill_manual(values = c("#395F94"), na.value = "white") +
   theme(legend.position = "none")
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Area4_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Area4_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
 ```
 
 ```{r}
 plot.depth.smooths(region = "L_4_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Area4_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.32, height = 1.82)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Area4_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.32, height = 1.82)
 ```
 
 **Dorsolateral PFC (46)**
@@ -902,12 +963,12 @@ ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I
   scale_fill_manual(values = c("#395F94"), na.value = "white") +
   theme(legend.position = "none")
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Area46_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Area46_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
 ```
 
 ```{r}
 plot.depth.smooths(region = "L_46_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Area46_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.32, height = 1.82)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Area46_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.32, height = 1.82)
 ```
 
 **Anterior Cingulate (a24)**
@@ -920,12 +981,12 @@ ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I
   scale_fill_manual(values = c("#395F94"), na.value = "white") +
   theme(legend.position = "none")
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Areaa24_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Areaa24_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
 ```
 
 ```{r}
 plot.depth.smooths(region = "L_a24_ROI", y_ticks = c(-0.01, 0, 0.01))
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Areaa24_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.32, height = 1.83)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Areaa24_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.32, height = 1.83)
 ```
 
 ## Developmental trajectory curvatures
@@ -1018,7 +1079,7 @@ geom_point(size = 1) +
         axis.ticks.y = element_blank(),
         axis.ticks.x = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Scree_plot.pdf", device = "pdf", dpi = 500, width = 1.32, height = 1.47)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Scree_plot.pdf", device = "pdf", dpi = 500, width = 1.32, height = 1.47)
 ```
 
 ### Clusters
@@ -1042,7 +1103,7 @@ kmeans.cluster.results <- data.frame(label = labels, cluster = as.factor(cluster
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Clusters_corticalmap.pdf", device = "pdf", dpi = 500, width = 4, height = 2)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Clusters_corticalmap.pdf", device = "pdf", dpi = 500, width = 4, height = 2)
 ```
 
 **Neurosynth Decoding**
@@ -1098,7 +1159,7 @@ ggplot(., aes(x = term.mean, y = term)) +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Motorcluster_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.18, height = 1.5)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Motorcluster_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.18, height = 1.5)
 ```
 
 ```{r}
@@ -1144,7 +1205,7 @@ ggplot(., aes(x = term.mean, y = term)) +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Cognitivecluster_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.18, height = 1.5)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Cognitivecluster_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.18, height = 1.5)
 ```
 
 ```{r}
@@ -1191,7 +1252,7 @@ ggplot(., aes(x = term.mean, y = term)) +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Emotioncluster_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.18, height = 1.5)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Emotioncluster_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.18, height = 1.5)
 ```
 
 **S-A Axis ranks**
@@ -1229,7 +1290,7 @@ cluster.curvatures %>%
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Depthplot_curvature.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.6)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Depthplot_curvature.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.6)
 ```
 
 **Average cluster age of maturation across depths**
@@ -1263,7 +1324,7 @@ cluster.maturation %>%
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 2.95, height = 1.6)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 2.95, height = 1.6)
 ```
 
 ### Curvature variation
@@ -1289,7 +1350,7 @@ ggplot() +
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Curvaturevariation_corticalmap.pdf", device = "pdf", dpi = 500, width = 4.1, height = 2)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4/Curvaturevariation_corticalmap.pdf", device = "pdf", dpi = 500, width = 4.1, height = 2)
 ```
 
 # Divergent Maturation of Deep and Superficial Myelin in Whole-Brain Association Cortex
@@ -1320,7 +1381,7 @@ ggplot() +
    geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex), colour=I(alpha("gray50", 0)), size=I(.06), hemi = "right") +
    scale_fill_manual(values = c(alpha("white", 0), "gray75"))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Deepcortex_maturation_brainplot.pdf", device = "pdf", dpi = 500, width = 2.5, height = 2.5)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Deepcortex_maturation_brainplot.pdf", device = "pdf", dpi = 500, width = 2.5, height = 2.5)
 ```
 
 ```{r}
@@ -1351,7 +1412,7 @@ ggplot() +
    scale_fill_manual(values = c(alpha("white", 0), c(alpha("white", 0))), na.value = "gray75") 
 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Superficialcortex_latedevelopment_brainplot.pdf", device = "pdf", dpi = 500, width = 2.5, height = 2.5)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Superficialcortex_latedevelopment_brainplot.pdf", device = "pdf", dpi = 500, width = 2.5, height = 2.5)
 ```
 
 ## Depth-dependent trajectories in exemplar non-frontal regions
@@ -1372,7 +1433,7 @@ ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I
   scale_fill_manual(values = c("gray10"), na.value = "white") +
   theme(legend.position = "none")
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/AreaV2_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/AreaV2_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
 ```
 
 ```{r}
@@ -1395,7 +1456,7 @@ gam.smoothestimates.allregions.long %>% filter(orig_parcelname == "L_V2_ROI") %>
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/V2_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.8, height = 1.78)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/V2_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.8, height = 1.78)
 ```
 
 **Lateral Temporal (TE1a)**
@@ -1408,7 +1469,7 @@ ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I
   scale_fill_manual(values = c("gray10"), na.value = "white") +
   theme(legend.position = "none")
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/AreaTE1a_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/AreaTE1a_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
 ```
 
 ```{r}
@@ -1431,7 +1492,7 @@ gam.smoothestimates.allregions.long %>% filter(orig_parcelname == "L_TE1a_ROI") 
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/TE1a_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.8, height = 1.78)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/TE1a_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.8, height = 1.78)
 ```
 
 **Precuneus (7m)**
@@ -1444,7 +1505,7 @@ ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I
   scale_fill_manual(values = c("gray10"), na.value = "white") +
   theme(legend.position = "none")
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/Area7m_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Area7m_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
 ```
 
 ```{r}
@@ -1467,5 +1528,5 @@ gam.smoothestimates.allregions.long %>% filter(orig_parcelname == "R_7m_ROI") %>
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure5/7m_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.85, height = 1.78)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/7m_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.85, height = 1.78)
 ```
