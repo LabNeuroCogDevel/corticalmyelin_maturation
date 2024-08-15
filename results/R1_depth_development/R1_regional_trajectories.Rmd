@@ -100,7 +100,7 @@ plot.cortical.region <- function(region, hemi, side, save = TRUE) {
   
   regional.ggseg.plot
   if(save == TRUE){
-  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3_supplementary/%s_corticalmap.pdf", region), device = "pdf", dpi = 500, width = .85, height = .55)
+  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4_supplementary/%s_corticalmap.pdf", region), device = "pdf", dpi = 500, width = .85, height = .55)
   }
   return(regional.ggseg.plot)
 }
@@ -132,7 +132,7 @@ plot.depth.smooths <- function(region, y_ticks, save = T){
   
   smooth.plot
   if(save == TRUE){
-  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3_supplementary/%s_depthsmooths.pdf", region), dpi = 500, width = 2.5, height = 1.7)
+  ggsave(filename = sprintf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure4_supplementary/%s_depthsmooths.pdf", region), dpi = 500, width = 2.5, height = 1.7)
   }
 
   return(smooth.plot)
