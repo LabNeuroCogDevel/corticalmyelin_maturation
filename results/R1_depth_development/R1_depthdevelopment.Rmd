@@ -75,7 +75,7 @@ BigBrain Histology Gradient
 #BigBrain histology-based cytoarchitecture differentiation gradient from Paquola et al., 2021, eLife
 bigbrain.cytoarchitecture.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_histologygradient/BigBrain.Histology.pscalar.nii")
 bigbrain <- data.frame(cytoarchitecture.gradient = bigbrain.cytoarchitecture.cifti$data, orig_parcelname = names(bigbrain.cytoarchitecture.cifti$Parcel))
-bigbrain <- merge(S.A.axis, glasser.regions, by = "orig_parcelname")
+bigbrain <- merge(bigbrain, glasser.regions, by = "orig_parcelname")
 ```
 
 Neurosynth Term Scores
@@ -769,18 +769,24 @@ maturation.cov.bydepth
 
 # Myelin Development is Hierarchically Patterned in Superficial Cortex
 
+```{r}
+map.colorbar <- c("#edf6ff", "#c2d4ed", "#809dc4", "#345c91", "#0e4669")
+```
+
 ## Variation in myelin development is patterned along the S-A axis
 
-```{r}
-SA.frontal <- S.A.axis %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) 
+```{r, warning = F, message = F}
+SA.frontal <- S.A.axis %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) %>% filter(label != "lh_L_10pp")
 
 ggplot() + 
   geom_brain(data = SA.frontal, atlas = glasser, mapping = aes(fill = SA.axis), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
-  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = 1, limits = c(0, 400), oob = squish, na.value = "white") +  
+  scale_fill_gradientn(colors = map.colorbar, trans = 'reverse', limits = c(360, 60), oob = squish, na.value = "white") + 
   theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
   new_scale_fill() + 
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/SAaxis_corticalmap.pdf", device = "pdf", dpi = 500, width = 4.3, height = 2.2)
 ```
 
 ```{r}
@@ -800,7 +806,7 @@ rate.SAaxis.bydepth$depth <- factor(rate.SAaxis.bydepth$depth, ordered = T, leve
 ggplot(rate.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
   geom_bar(stat = "identity") +
   theme_classic() +
-  xlab("\nS-A Axis Correlation") +
+  xlab("\nDevelopmental Correlation") +
   ylab("Cortical Depth\n") +
   scale_x_continuous(breaks = c(-0.5, -0.25, 0), limits = c(-0.52, 0)) +
   scale_fill_manual(values = depth_colorbar) +
@@ -814,14 +820,17 @@ ggplot(rate.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
         axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/SAaxis_rate_depthcorrelation.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
 ```
 
-```{r}
+```{r, message = F}
 regional.rate.alldepths %>% filter(depth == "depth_1") %>% merge(., S.A.axis) %>% 
   ggplot(., aes(x = SA.axis, y = rate)) + geom_point(size = .5) +
-  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[7], fill = "gray85") +
-  labs(x="\nS-A Axis (rank)", y=sprintf("Rate of Increase (derivative)\n")) +
-    theme_classic() +
+  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[7], fill = "gray78") +
+  labs(x="\nSensorimotor-Association Axis", y=sprintf("Rate of Increase (derivative)\n")) +
+  scale_y_continuous(breaks = c(0, 0.001, 0.002)) +
+  theme_classic() +
     theme(
         legend.position = "none", 
         panel.grid.major = element_blank(),
@@ -831,20 +840,24 @@ regional.rate.alldepths %>% filter(depth == "depth_1") %>% merge(., S.A.axis) %>
         axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/SAaxis_rate_depth1.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
 ```
 
 ## Variation in myelin development aligns with cytoarchitectural variation
 
 ```{r}
-bigbrain.frontal <- bigbrain %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) 
+bigbrain.frontal <- bigbrain %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) %>% filter(label != "lh_L_10pp")
 
 ggplot() + 
   geom_brain(data = bigbrain.frontal, atlas = glasser, mapping = aes(fill = cytoarchitecture.gradient), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
-  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(-.3, .3), oob = squish, na.value = "white") +  
+  scale_fill_gradientn(colors = map.colorbar, limits = c(-.3, .3), oob = squish, na.value = "white") + 
   theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
   new_scale_fill() + 
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Cytoarchitecture_corticalmap.pdf", device = "pdf", dpi = 500, width = 4.3, height = 2.2)
 ```
 
 ```{r}
@@ -864,7 +877,7 @@ rate.bigbrain.bydepth$depth <- factor(rate.bigbrain.bydepth$depth, ordered = T, 
 ggplot(rate.bigbrain.bydepth, aes(x = histology.corr, y = depth,  fill = depth)) +
   geom_bar(stat = "identity") +
   theme_classic() +
-  xlab("\nCytoarchitecture Axis Correlation") +
+  xlab("\nCytoarchitectural Differentiation Correlation") +
   ylab("Cortical Depth\n") +
   scale_x_continuous(breaks = c(0, 0.35, 0.7)) +
   scale_fill_manual(values = depth_colorbar) +
@@ -878,14 +891,17 @@ ggplot(rate.bigbrain.bydepth, aes(x = histology.corr, y = depth,  fill = depth))
         axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Cytoarchitecture_rate_depthcorrelation.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
 ```
 
-```{r}
+```{r, message = F}
 regional.rate.alldepths %>% filter(depth == "depth_1") %>% merge(., bigbrain) %>% 
   ggplot(., aes(x = cytoarchitecture.gradient, y = rate)) + geom_point(size = .5) +
-  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[7], fill = "gray85") +
-  labs(x="\nCytoarchitecture Axis (rank)", y=sprintf("Rate of Increase (derivative)\n")) +
-    theme_classic() +
+  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[7], fill = "gray78") +
+  labs(x="\nCytoarchitectural Variation", y=sprintf("Rate of Increase (derivative)\n")) +
+  scale_y_continuous(breaks = c(0, 0.001, 0.002)) +
+  theme_classic() +
     theme(
         legend.position = "none", 
         panel.grid.major = element_blank(),
@@ -895,6 +911,8 @@ regional.rate.alldepths %>% filter(depth == "depth_1") %>% merge(., bigbrain) %>
         axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure3/Cytoarchitecture_rate_depth1.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
 ```
 
 # Depth-dependent Differences in Myelin Maturational Profiles Vary Across Prefrontal Cortical Zones
