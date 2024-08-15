@@ -4,7 +4,7 @@ library(readr)
 library(cifti)
 
 # Glasser atlas frontal regions
-glasser.regions <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist.csv") #region labels + ordering, matching rh -> lh above
+glasser.regions <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist.csv") 
 glasser.frontal <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist_frontallobe.csv")
 
 # Left and right hemisphere glasser atlas distance matrices
@@ -45,4 +45,17 @@ identical(SAaxis.rh.frontal$orig_parcelname, rh.distmat.regions)
 SAaxis.rh.frontal <- SAaxis.rh.frontal %>% select(SA.axis)
 write.table(SAaxis.rh.frontal, "/Volumes/Hera/Projects/corticalmyelin_development/Maps/Brainsmash/smash_data/SA.rh.frontallobe.glasser.txt", row.names = F, quote = F, col.names = F)
 
+# Cytoarchitectural variation in frontal lobe (in distance matrix order)
+bigbrain.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_histologygradient/BigBrain.Histology.pscalar.nii")
+bigbrain <- data.frame(cytoarchitecture.gradient = bigbrain.cifti$data, orig_parcelname = names(bigbrain.cifti$Parcel))
+
+bigbrain.lh.frontal <- bigbrain[bigbrain$orig_parcelname %in% lh.distmat.regions,]
+identical(bigbrain.lh.frontal$orig_parcelname, lh.distmat.regions)
+bigbrain.lh.frontal <- bigbrain.lh.frontal %>% select(cytoarchitecture.gradient)
+write.table(bigbrain.lh.frontal, "/Volumes/Hera/Projects/corticalmyelin_development/Maps/Brainsmash/smash_data/Bigbrain.lh.frontallobe.glasser.txt", row.names = F, quote = F, col.names = F)
+
+bigbrain.rh.frontal <- bigbrain[bigbrain$orig_parcelname %in% rh.distmat.regions,]
+identical(bigbrain.rh.frontal$orig_parcelname, rh.distmat.regions)
+bigbrain.rh.frontal <- bigbrain.rh.frontal %>% select(cytoarchitecture.gradient)
+write.table(bigbrain.rh.frontal, "/Volumes/Hera/Projects/corticalmyelin_development/Maps/Brainsmash/smash_data/Bigbrain.rh.frontallobe.glasser.txt", row.names = F, quote = F, col.names = F)
 
