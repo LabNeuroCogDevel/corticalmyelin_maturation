@@ -34,6 +34,12 @@ source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_ma
 
 # Read in Data
 
+Final participant list
+
+```{r}
+participants <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_MP2RAGE_finalsample_demographics.csv")
+```
+
 R1 and aperiodic measures in electrode atlas
 
 ```{r}
@@ -46,12 +52,12 @@ R1_aperiodicactivity_electrodeatlas <- lapply(R1_aperiodicactivity_electrodeatla
 
 #Long depth df for interaction plotting
 SGIGR1_aperiodicactivity_electrodeatlas <- do.call(rbind, R1_aperiodicactivity_electrodeatlas)
-SGIGR1_aperiodicactivity_electrodeatlas$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas)), levels = c("deep", "superficial"), ordered = T) #ordered factor for interactions, depth is the base smooth and superficial is the interaction difference smooth
+SGIGR1_aperiodicactivity_electrodeatlas$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas)), levels = c("deep", "superficial"), ordered = F)
 
 fooof.data <- R1_aperiodicactivity_electrodeatlas[[1]] #for aperiodic activity developmental models 
 ```
 
-R1 - aperiodic activity gam outputs
+GAM outupts: aperiodic activity
 
 ```{r}
 setwd("/Volumes/Hera/Projects/corticalmyelin_development/gam_outputs/eeg_associations/") #output from /gam_models/fit_eegGAMS_electrodeatlas_bydepth.R
@@ -68,6 +74,12 @@ for(i in 1:length(files)){
   }
 ```
 
+Power spectra
+
+```{r}
+power.data <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/EEG/PSD_table.RDS")
+```
+
 # EEG cortical zones
 
 ```{r}
@@ -75,26 +87,26 @@ eegkit::eegcap(electrodes = c("F7", "F8", #vlpfc
 "AF5", "AF6", "F3", "F4", "F5", "F6",     #dlpfc
 "AF1", "AF2", "F1", "F2",                 #superior pfc
 "FC1", "FC2", "FC3", "FC4"),              #motor
-col.point = c("#B5ABCE", "#B5ABCE",
-"#61568f", "#61568f", "#61568f", "#61568f", "#61568f", "#61568f",
-"#275887", "#275887", "#275887", "#275887",
-"#96bfd6", "#96bfd6", "#96bfd6", "#96bfd6"),
+col.point = c("#c2d4ed", "#c2d4ed",
+"#7a99c2", "#7a99c2", "#7a99c2", "#7a99c2", "#7a99c2", "#7a99c2",
+"#345c91", "#345c91", "#345c91", "#345c91",
+"#0f3366", "#0f3366", "#0f3366", "#0f3366"),
 cex.point = 3, nose = TRUE, ears = TRUE,
 plotlabels = FALSE,  plotaxes = FALSE, col.head = "grey",
 type="2d")
 ```
 
 ```{r include=FALSE}
-pdf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Electrodes_eegcap_all.pdf", width = 1.5, height = 1)
+pdf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Electrodes_eegcap_all.pdf", width = 1.5, height = 1)
 
 eegkit::eegcap(electrodes = c("F7", "F8", #vlpfc
 "AF5", "AF6", "F3", "F4", "F5", "F6",     #dlpfc
 "AF1", "AF2", "F1", "F2",                 #superior pfc
 "FC1", "FC2", "FC3", "FC4"),              #motor
-col.point = c("#B5ABCE", "#B5ABCE",
-"#61568f", "#61568f", "#61568f", "#61568f", "#61568f", "#61568f",
-"#275887", "#275887", "#275887", "#275887",
-"#96bfd6", "#96bfd6", "#96bfd6", "#96bfd6"),
+col.point = c("#c2d4ed", "#c2d4ed",
+"#7a99c2", "#7a99c2", "#7a99c2", "#7a99c2", "#7a99c2", "#7a99c2",
+"#345c91", "#345c91", "#345c91", "#345c91",
+"#0f3366", "#0f3366", "#0f3366", "#0f3366"),
 cex.point = .4, nose = TRUE, ears = TRUE,
 plotlabels = FALSE,  plotaxes = FALSE, col.head = "grey",
 type="2d")
@@ -104,27 +116,67 @@ dev.off()
 
 # Aperiodic Slope Flattens Through Adolescence
 
+## Power spectrums in developmental groups
+
+````{r}
+electrode.list <- c("F7", "F8", "AF5", "AF6", "F3", "F4", "F5", "F6", "AF1", "AF2", "F1", "F2", "FC1", "FC2", "FC3", "FC4")
+power.data <- power.data[power.data$labels %in% electrode.list,]
+power.data <- power.data %>% filter(freqs > 5) %>% filter(freqs < 50)
+power.data <- merge(power.data, participants, by = c("lunaid", "eeg.date"))
+```
+
+```{r}
+#Age bin-averaged power spectrums
+power.young <- power.data %>% filter(age < 17) %>% group_by(freqs) %>% do(power = mean(.$power)) %>% unnest(cols = "power")
+
+power.mid <- power.data %>% filter(age >= 17) %>% filter(age < 24) %>% group_by(freqs) %>% do(power = mean(.$power)) %>% unnest(cols = "power")
+
+power.old <- power.data %>% filter(age >= 24) %>% group_by(freqs) %>% do(power = mean(.$power)) %>% unnest(cols = "power")
+```
+
+```{r}
+ggplot() +
+  geom_line(data = power.young, aes(x = freqs, y = log10(power)), color = "#c2d4ed", linewidth = 0.8) +
+  geom_line(data = power.mid, aes(x = freqs, y = log10(power)), color = "#7a99c2", linewidth = 0.8) +
+  geom_line(data = power.old, aes(x = freqs, y = log10(power)), color = "#345c91", linewidth = 0.8) + 
+  theme_classic() +
+  labs(x="\nFrequency", y=sprintf("Power\n")) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Powerspectrum_agebinned.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.95)
+```
+
+## Aperiodic exponent development
+
+#### Statistics
+
 ```{r}
 #Aperiodic exponent developmental gams for the four EEG cortical zones
-vlpfc.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "vlpfc_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 3, set_fx = FALSE)
+vlpfc.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "vlpfc_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)
 
-dlpfc.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "dlpfc_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 3, set_fx = FALSE)
+dlpfc.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "dlpfc_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)
 
-spfc.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "spfc_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 3, set_fx = FALSE)
+spfc.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "spfc_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)
 
-motor.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "motor_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 3, set_fx = FALSE)
+motor.exponent.gam <- gam.statistics.smooths(input.df = fooof.data, region = "motor_exponent", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)
 
 exponent.gam.stats <- rbind(vlpfc.exponent.gam$gam.statistics, dlpfc.exponent.gam$gam.statistics, spfc.exponent.gam$gam.statistics, motor.exponent.gam$gam.statistics)
 ```
-
-## Developmental statistics
 
 ```{r}
 exponent.gam.stats %>% select(orig_parcelname, GAM.smooth.Fvalue, GAM.smooth.pvalue, smooth.decrease.offset) %>%
 kbl() %>% kable_classic(full_width = F)
 ```
 
-## Developmental trajectories
+#### Trajectories
 
 ```{r, warning = F}
 ggplot() +
@@ -139,10 +191,10 @@ ggplot() +
    geom_line(data = fooof.data, aes(x = age, y = motor_exponent, group = subject_id), linewidth = 0.2, color = "gray77") +
 
   #fitted smooths
-      geom_line(data = vlpfc.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#B5ABCE", linewidth = .8) +
-      geom_line(data = dlpfc.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#61568f", linewidth = .8) +
-      geom_line(data = spfc.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#275887", linewidth = .8) +
-      geom_line(data = motor.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#79acc9", linewidth = .8) +
+      geom_line(data = vlpfc.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#c2d4ed", linewidth = .8) +
+      geom_line(data = dlpfc.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#7a99c2", linewidth = .8) +
+      geom_line(data = spfc.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#345c91", linewidth = .8) +
+      geom_line(data = motor.exponent.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#0f3366", linewidth = .8) +
     labs(x="\nAge", y=sprintf("Aperiodic Exponent\n")) +
     scale_y_continuous(limits = c(0.66, 2.05)) + 
     theme_classic() +
@@ -156,10 +208,10 @@ ggplot() +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Exponent_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.37, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Exponent_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.95)
 ```
 
-# Deep Cortex Myelin Content Influences an E/I-linked Measure of Cortical Synchrony 
+# Deep Cortex Myelin Impacts an E/I-Linked Measure of Functional Maturation
 
 ## Superficial cortex R1 - aperiodic exponent associations
 
@@ -178,16 +230,16 @@ R1exponent_deep_maineffect$gam.statistics.df
 ```{r}
 R1exponent.plotdata <- rbind(R1exponent_superficial_maineffect$gam.statistics.df, R1exponent_deep_maineffect$gam.statistics.df) #long df with stats per superficial and deep depths
 R1exponent.plotdata$orig_parcelname <- gsub("_R1", "", R1exponent.plotdata$orig_parcelname)
-R1exponent.plotdata <- R1exponent.plotdata %>% filter(orig_parcelname != "motor")
+R1exponent.plotdata <- R1exponent.plotdata %>% filter(orig_parcelname != "motor") #plot ones with significant depth interactions
 R1exponent.plotdata$orig_parcelname <- factor(R1exponent.plotdata$orig_parcelname, ordered = T, levels = c("vlpfc", "dlpfc", "spfc")) #order for plotting
 
-ggplot(R1exponent.plotdata, aes (x = orig_parcelname, y = GAM.covsmooth.meaneffect, group = depth, color = depth)) +
+ggplot(R1exponent.plotdata, aes (x = orig_parcelname, y = GAM.covsmooth.Fvalue, group = depth, color = depth)) +
   geom_point(size = 3.5, shape = 15) + 
   theme_classic() +
   scale_x_discrete(expand = c(.1, .1)) +
-  scale_y_continuous(limits = c(-0.01864, -0.0065), breaks = c(-0.018, -0.015, -0.012, -0.009)) +
   scale_color_manual(values = c("#004A38FF", "#A29DC4")) +
-  labs(x="\n", y=sprintf("R1 - Aperiodic Exponent Association\nEffect Size (derivative)\n")) +
+  scale_y_continuous(limits = c(3, 5.6), breaks = c(3, 4, 5)) +
+  labs(x="\n", y=sprintf("R1 - Aperiodic Exponent Statistic\n")) +
   theme(
         legend.position = "none", 
         panel.grid.major = element_blank(),
@@ -198,14 +250,18 @@ ggplot(R1exponent.plotdata, aes (x = orig_parcelname, y = GAM.covsmooth.meaneffe
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/R1Exponent_meanderivative_effectplot.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.94)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/R1Exponent_Fvalue_depthplot.pdf", device = "pdf", dpi = 500, width = 1.7, height = 1.94)
 ```
 
 ## R1 - aperiodic exponent interactions by cortical depth
 
+#### Interaction effects
+
 ```{r}
-R1exponent_depth_interaction %>% kbl() %>% kable_classic(full_width = F)
+R1exponent_depth_interaction$gam.interactions.df %>% kbl() %>% kable_classic(full_width = F)
 ```
+
+#### Marginal means 
 
 ```{r, message = F}
 vlpfc.interaction.model <- gam(vlpfc_R1 ~ s(age, k = 4, fx = F) + s(vlpfc_exponent, k = 3, fx = F) + s(vlpfc_exponent, by = depth, k = 3) + s(subject_id, bs="re") + depth, method = c("REML"), data = SGIGR1_aperiodicactivity_electrodeatlas) 
@@ -226,7 +282,7 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/VLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 2, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/VLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
 ```
 
 ```{r, message = F}
@@ -248,13 +304,35 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/DLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 2, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/DLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
 ```
 
 ```{r, message = F}
 spfc.interaction.model <- gam(spfc_R1 ~ s(age, k = 4, fx = F) + s(spfc_exponent, k = 3, fx = F) + s(spfc_exponent, by = depth, k = 3) + s(subject_id, bs="re") + depth, method = c("REML"), data = SGIGR1_aperiodicactivity_electrodeatlas) 
 
 interaction.plotdata <- ggpredict(spfc.interaction.model, terms = c("spfc_exponent", "depth"), interval = "confidence")
+plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38FF", "#A29DC4"), line_size = 1, dot_size = 1, show_title = F) + 
+  theme_classic() +
+  labs(x="\nAperiodic Exponent", y=sprintf("R1 (adjusted)\n")) +
+  scale_x_continuous(breaks = c(1, 1.5, 2)) +
+  scale_y_continuous(breaks = c(0.5, 0.54, 0.58)) +
+  theme(
+       legend.position = "none", 
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+      axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+      axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+      axis.line = element_line(linewidth = .2), 
+      axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/SPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
+```
+
+```{r, message = F}
+motor.interaction.model <- gam(motor_R1 ~ s(age, k = 4, fx = F) + s(motor_exponent, k = 3, fx = F) + s(motor_exponent, by = depth, k = 3) + s(subject_id, bs="re") + depth, method = c("REML"), data = SGIGR1_aperiodicactivity_electrodeatlas) 
+
+interaction.plotdata <- ggpredict(motor.interaction.model, terms = c("motor_exponent", "depth"), interval = "confidence")
 plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38FF", "#A29DC4"), line_size = 1, dot_size = 1, show_title = F) + 
   theme_classic() +
   labs(x="\nAperiodic Exponent", y=sprintf("R1 (adjusted)\n")) +
@@ -268,10 +346,12 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Motor_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
 ```
 
  
-# No Association Between Myelin Content and Aperiodic Offset
+# Myelin-Aperiodic Associations are Specific to Exponent
 
 ## Superficial cortex R1 - aperiodic offset associations
 
@@ -284,5 +364,7 @@ R1offset_superficial_maineffect$gam.statistics.df %>% kbl() %>% kable_classic(fu
 ```{r}
 R1offset_deep_maineffect$gam.statistics.df %>% kbl() %>% kable_classic(full_width = F)
 ```
+
+
 
 
