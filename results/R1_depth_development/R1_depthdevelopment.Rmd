@@ -603,6 +603,19 @@ lapply(gam.statistics.alldepths, function(depth){
 })
 ```
 
+## Number of significant age by depth interactions across regions
+
+```{r}
+agebydepth.interaction.stats <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/gam_outputs/developmental_effects/agebydepth_interaction_gamstatistics.RDS") 
+
+agebydepth.interaction.stats <- format_depth_dfs(agebydepth.interaction.stats)
+agebydepth.interaction.stats <- agebydepth.interaction.stats %>% mutate(significant = p.adjust(agebydepth.interaction.stats$`p-value`, method = c("fdr")) < 0.05) #determine fdr-corrected significance
+sig_n <- sum(agebydepth.interaction.stats$significant)
+sig_percent <- round((sig_n/length(agebydepth.interaction.stats$significant))*100, 2)
+
+sprintf("%s percent of regions show significantly different developmental trajectories (age smooth) across cortical depths", sig_percent)
+```
+
 ## Regional derivatives at each depth
 
 ```{r}
