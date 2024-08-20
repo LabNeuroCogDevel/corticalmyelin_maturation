@@ -221,7 +221,6 @@ gam.statistics.smooths <- function(input.df, region, smooth_var, id_var, covaria
   return(gam.results)
 }
 
-
 #### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH AN AGE BY TWO-FACTOR INTERACTION
 ##Function to fit a GAM with one smooth plus optional id-based random effect terms as well as a factor-smooth interaction of interest
 #'@param input.df: df with variables for modeling
@@ -296,6 +295,85 @@ gam.agebysex.interaction <- function(input.df, region, smooth_var, id_var, int_v
   interaction.stats <- data.frame(as.character(parcel), as.numeric(gam.int.F), as.numeric(gam.int.pvalue))
   colnames(interaction.stats) <- c("orig_parcelname", "GAM.int.Fvalue", "GAM.int.pvalue")
   return(interaction.stats)
+}
+
+#### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH A CONTINUOUS-BY-CONTINUOUS (TENSOR PRODUCT) INTERACTION
+##Function to fit a GAM with one smooth plus optional id-based random effect terms and a tensor product interaction
+#'@param input.df: df with variables for modeling
+#'@param region: name of the input.df column to use as the dependent variable in the gam
+#'@param smooth_var: name of the input.df column to fit the first smooth function to
+#'@param smooth_var_knots: value of k to use for the smooth_var s() term
+#'@param smooth_int_var: name of the input.df column to fit the second smooth function to
+#'@param smooth_int_var_knots: value of k to use for the smooth_int_var s() term
+#'@param linear_covariates: linear covariates to include in the gam model. multiple covariates can be included or can be set to "NA"
+#'@param id_var: name of the input.df column to use as the random effects variable
+#'@param random_intercepts: TRUE/FALSE as to whether the gam should include random intercepts for the id_var
+#'@param random_slopes: TRUE/FALSE as to whether the gam should include random intercepts and slopes for the id_var
+#'@param set_fx: TRUE/FALSE as to whether to used fixed (T) or penalized (F) splines for the smooth_var s() term  
+gam.tensorproduct.interaction <- function(input.df, region, smooth_var, smooth_var_knots, smooth_int_var, smooth_int_var_knots, linear_covariates, id_var, random_intercepts = FALSE, random_slopes = FALSE, set_fx = FALSE){
+  
+  ## MODEL FITTING ##
+  
+  #Format input data
+  gam.data <- input.df #df for gam modeling
+  parcel <- region 
+  region <- str_replace(region, "-", "_") #region for gam modeling
+  gam.data[,id_var] <- as.factor(gam.data[,id_var]) #random effects variable must be a factor for mgcv::gam
+  if(linear_covariates != "NA"){
+    covs <- str_split(linear_covariates, pattern = "\\+", simplify = T)
+    for(cov in covs){
+      cov <- gsub(" ", "", cov)
+      if(is.character(gam.data[, cov])){
+        gam.data[,cov] <- as.factor(gam.data[,cov]) #format covariates as factors if needed
+      }
+    }}
+  
+  #Fit the model
+  if(random_intercepts == FALSE){
+    if(linear_covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + ti(%2$s, %5$s, k = c(%3$s, %6$s), fx = %4$s) + %7$s", region, smooth_var, smooth_var_knots, set_fx, smooth_int_var, smooth_int_var_knots, linear_covariates))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(linear_covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + ti(%2$s, %5$s, k = c(%3$s, %6$s), fx = %4$s)", region, smooth_var, smooth_var_knots, set_fx, smooth_int_var, smooth_int_var_knots))
+      gam.model <- gam(modelformula, method = "REML", data = gam.data)
+      gam.results <- summary(gam.model)}
+  }
+  
+  if(random_intercepts == TRUE){
+    if(linear_covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + ti(%2$s, %5$s, k = c(%3$s, %6$s), fx = %4$s) + s(%7$s, bs = 're') + %8$s", region, smooth_var, smooth_var_knots, set_fx, smooth_int_var, smooth_int_var_knots, id_var, linear_covariates))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(linear_covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + ti(%2$s, %5$s, k = c(%3$s, %6$s), fx = %4$s) + s(%7$s, bs = 're')", region, smooth_var, smooth_var_knots, set_fx, smooth_int_var, smooth_int_var_knots, id_var))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)
+    }
+  }
+  
+  if(random_slopes == TRUE){
+    if(linear_covariates != "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + ti(%2$s, %5$s, k = c(%3$s, %6$s), fx = %4$s) + s(%5$s, %7$s, bs = 'fs') + %8$s", region, smooth_var, smooth_var_knots, set_fx, smooth_int_var, smooth_int_var_knots, id_var, linear_covariates))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)}
+    if(linear_covariates == "NA"){
+      modelformula <- as.formula(sprintf("%1$s ~ s(%2$s, k = %3$s, fx = %4$s) + s(%5$s, k = %6$s, fx = %4$s) + ti(%2$s, %5$s, k = c(%3$s, %6$s), fx = %4$s) + s(%5$s, %7$s, bs = 'fs')", region, smooth_var, smooth_var_knots, set_fx, smooth_int_var, smooth_int_var_knots, id_var))
+      gam.model <- gam(modelformula, method = "REML", family = gaussian(link = "identity"), data = gam.data)
+      gam.results <- summary(gam.model)
+    }
+  }
+  
+  ## MODEL STATISTICS ##
+  
+  #F-value and p-values for interaction term (ti)
+  gam.smooth.interactioneffect <- gam.results$s.table %>% as.data.frame #convert smooth table to a df
+  gam.smooth.interactioneffect <- gam.smooth.interactioneffect[grepl("ti", rownames(gam.smooth.interactioneffect)), ] #get statistics for the smooth_covariate
+  gam.smooth.interactioneffect$orig_parcelname <- parcel
+  gam.smooth.interactioneffect <- gam.smooth.interactioneffect %>% select("orig_parcelname", "F", "p-value")
+  rownames(gam.smooth.interactioneffect) <- NULL
+  
+  return(gam.smooth.interactioneffect)
 }
 
 #### FIT A GENERALIZED ADDITIVE (MIXED) MODEL WITH A LINEAR COVARIATE OF INTEREST
