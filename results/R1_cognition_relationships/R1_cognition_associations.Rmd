@@ -1,0 +1,762 @@
+---
+title: "Cortical Myelin Supports Enhanced Learning Rate and Cognitive Processing Speed"
+author: "Valerie Jill Sydnor"
+output: 
+  rmdformats::material:
+    highlight: monochrome
+    lightbox: true
+    gallery: true
+    css: /Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/custom_css/cognition.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggseg)
+library(ggsegGlasser)
+library(purrr)
+library(scales)
+library(ggnewscale)
+library(arrow)
+library(kableExtra)
+library(mgcv)
+library(ggeffects)
+library(PupillometryR)
+extrafont::loadfonts()
+source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/gam_models/gam_functions.R")
+```
+
+# Read in Data 
+
+Glasser regions
+
+```{r}
+#Glasser region and label names
+glasser.regions <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist.csv") #whole cortex
+glasser.frontal <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist_frontallobe.csv") #frontal lobe only
+glasser.snr.exclude <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/SNR/glasser_SNR_exclusion.csv") #SNR exclusion parcels
+```
+
+```{r}
+#for ggseg brain colors
+glasser.plotting <- glasser.regions
+glasser.plotting$cortex <- "cortex"
+glasser.plotting$cortex[glasser.plotting$orig_parcelname %in% glasser.snr.exclude$orig_parcelname] <- "exclude"
+glasser.plotting <- glasser.plotting %>% select(label, cortex)
+glasser.plotting <- rbind(glasser.plotting, data.frame(label = "rh_???", cortex = "exclude"))
+glasser.plotting <- rbind(glasser.plotting, data.frame(label = "lh_???", cortex = "exclude"))
+glasser.plotting <- glasser.plotting %>% filter(label != "lh_L_10pp")
+```
+
+Neurosynth term scores
+
+```{r}
+neurosynth.terms <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/Neurosynth_terms/atl-glasser360_neurosynth.csv") %>% dplyr::select(-regionName) %>% dplyr::select(-timing) #neurosynth term meta-analytic scores for 123 terms present in both NeuroSynth and the Cognitive Atlas, ordered in lh --> rh glasser order
+neurosynth.termlist <- names(neurosynth.terms) #list of term names
+neurosynth.terms$label[1:180] <- glasser.regions$label[181:360] #lh first
+neurosynth.terms$label[181:360] <- glasser.regions$label[1:180] #rh
+neurosynth.terms[,1:123] <- scale(neurosynth.terms[,1:123])
+```
+
+Final participant list
+
+```{r}
+participants <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_MP2RAGE_finalsample_demographics.csv")
+participants$behave.scan.gap <- ymd(participants$mp2rage.date) - ymd(participants$behave.date)
+participants <- participants %>% filter(behave.scan.gap < 360) #final list of participants (+ demos) for cognitive analyses
+```
+
+Sequential learning task behavioral measures
+
+```{r}
+daw.metrics <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_MP2RAGE_finalsample_sequentiallearning.csv") %>% select(subject_id, session_id, age, meanrts1, meanrts2, a1, a2)
+participants.daw <- left_join(participants, daw.metrics, by = c("subject_id", "session_id", "age"))
+participants.daw <- participants.daw %>% filter(!is.na(a1)) #195 sessions from 131 participants, data used for GAM fitting
+```
+
+Saccade task behavioral measures
+
+```{r}
+saccade.metrics <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/merged_7t.csv") %>% select(lunaid, visitno, sess.age, antiET.cor.lat, eeg.vgsLatency_DelayAll)
+colnames(saccade.metrics)[3] <- "age"
+participants.saccade <- left_join(participants, saccade.metrics, by = c("lunaid", "visitno", "age"))
+participants.saccade <- participants.saccade %>% filter(!is.na(antiET.cor.lat)) %>% filter(!is.na(eeg.vgsLatency_DelayAll)) #187 sessions from 125 participants, data used for GAM fitting
+```
+
+Superficial and deep R1 measures
+
+```{r}
+SGIGmyelin.glasser.7T <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/SGIGR1_glasseratlas_finalsample.RDS")
+SGIGmyelin.glasser.depths <- do.call(rbind, SGIGmyelin.glasser.7T)
+SGIGmyelin.glasser.depths$depth <- factor(sub("\\..*$", "", row.names(SGIGmyelin.glasser.depths)), levels = c("deep", "superficial"), ordered = T) #long data frame with superficial and deep R1 for each subject/session
+
+SGIGmyelin.glasser.depths <- merge(SGIGmyelin.glasser.depths, participants.daw) #data for daw final sample
+SGIGmyelin.glasser.depths$subject_id <- as.factor(SGIGmyelin.glasser.depths$subject_id)
+```
+
+GAM outputs: cognitive effects
+
+```{r}
+setwd("/Volumes/Hera/Projects/corticalmyelin_development/gam_outputs/cognitive_associations/") #output from /gam_models/fit_cognitionGAMs_glasserregions_bydepth.R
+
+files <- list.files(getwd()) 
+
+#read in files and assign to variables
+for(i in 1:length(files)){
+  
+  Rfilename <- gsub(".RDS", "", files[i])
+  
+  x <- readRDS(files[i]) 
+  assign(Rfilename, x) 
+  }
+```
+
+```{r}
+#Function to get main effect gam.statistics for only good SNR frontal lobe regions
+format_maineffect_dfs <- function(input.df){
+  input.df[[1]] <- input.df[[1]][input.df[[1]]$orig_parcelname %in% glasser.frontal$orig_parcelname,] #get results for frontal lobe only
+  input.df[[1]] <- input.df[[1]][!(input.df[[1]]$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+  input.df[[1]] <- merge(input.df[[1]], glasser.regions, by = c("orig_parcelname"))
+  return(input.df)
+}
+
+maineffect.dfs <- list(rt1_superficial_statistics, rt1_deep_statistics, rt1_SGIGdepths_maineffect, rt2_superficial_statistics, rt2_deep_statistics, rt2_SGIGdepths_maineffect, a1_superficial_statistics, a1_deep_statistics, a1_SGIGdepths_maineffect, a2_superficial_statistics, a2_deep_statistics, a2_SGIGdepths_maineffect, antilatency_SGIGdepths_maineffect, vgslatency_SGIGdepths_maineffect)
+
+names(maineffect.dfs) <- list("rt1_superficial_statistics", "rt1_deep_statistics", "rt1_SGIGdepths_maineffect", "rt2_superficial_statistics", "rt2_deep_statistics", "rt2_SGIGdepths_maineffect", "a1_superficial_statistics", "a1_deep_statistics", "a1_SGIGdepths_maineffect", "a2_superficial_statistics", "a2_deep_statistics", "a2_SGIGdepths_maineffect", "antilatency_SGIGdepths_maineffect", "vgslatency_SGIGdepths_maineffect")
+
+maineffect.dfs <- lapply(maineffect.dfs, format_maineffect_dfs)
+```
+
+```{r}
+#Function to get interaction effect statistics for only good SNR frontal lobe regions
+format_int_dfs <- function(input.df){
+  input.df[[2]] <- input.df[[2]][input.df[[2]]$orig_parcelname %in% glasser.frontal$orig_parcelname,] #get results for frontal lobe only
+  input.df[[2]] <- input.df[[2]][!(input.df[[2]]$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+  input.df[[2]] <- merge(input.df[[2]], glasser.regions, by = c("orig_parcelname"))
+  return(input.df)
+}
+
+interaction.dfs <- list(rt1_depthinteraction, rt2_depthinteraction, a1_depthinteraction, a2_depthinteraction)
+
+names(interaction.dfs) <- list("rt1_depthinteraction", "rt2_depthinteraction", "a1_depthinteraction", "a2_depthinteraction")
+
+interaction.dfs <- lapply(interaction.dfs, format_int_dfs)
+```
+
+# Sequential Learning Task Characteristics
+
+## Stage 1 versus stage 2
+
+**Learning Rate**
+
+```{r}
+#Paired t-test for learning rates between task stages 1 and 2
+participants.daw.long <- participants.daw %>% pivot_longer(cols = c("a1", "a2"), names_to = "task.stage", values_to = "learning.rate") %>% mutate(subses = as.factor(sprintf("%s_%s", subject_id, session_id)))
+
+t.test(learning.rate ~ task.stage, paired = TRUE, data = participants.daw.long)
+```
+
+```{r, warning = F}
+ggplot(participants.daw.long, aes(x = task.stage, y = learning.rate, color = task.stage)) +
+  geom_boxplot(alpha = 0, width = .35) +
+  geom_line(data = participants.daw.long, aes(group = subses), color = "gray75", linewidth = 0.03) +
+  theme_classic() +
+  scale_x_discrete(expand = c(0.12, 0.12), labels = c("1", "2")) +
+  scale_color_manual(values = c("#9f8da3", "#64567a")) +
+  labs(x="\nStage", y=sprintf("Learning Rate\n")) +
+  theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Learningrate_stageeffect.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.2)
+```
+
+**Response time**
+
+```{r}
+#Paired t-test for response times between task stages 1 and 2
+participants.daw.long <- participants.daw %>% pivot_longer(cols = c("meanrts1", "meanrts2"), names_to = "task.stage", values_to = "response.time") %>% mutate(subses = as.factor(sprintf("%s_%s", subject_id, session_id)))
+
+t.test(response.time ~ task.stage, paired = TRUE, data = participants.daw.long)
+```
+
+```{r, warning = F}
+ggplot(participants.daw.long, aes(x = task.stage, y = response.time, color = task.stage)) +
+  geom_boxplot(alpha = 0, width = .35) +
+  geom_line(data = participants.daw.long, aes(group = subses), color = "gray75", linewidth = 0.03) +
+  theme_classic() +
+  scale_x_discrete(expand = c(0.12, 0.12), labels = c("1", "2")) +
+  scale_color_manual(values = c("#7a99c2", "#385d7c")) +
+    labs(x="\nStage", y=sprintf("Response Time\n")) +
+    theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Responsetime_stageeffect.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.2)
+```
+
+## Developmental Improvements in Task Performance
+
+**Learning Rate - stage 1**
+
+```{r}
+#GAM to model age spline for stage 1 learning rate
+a1.age.gam <- gam.statistics.smooths(input.df = participants.daw, region = "a1", smooth_var = "age", knots = 3, id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, set_fx = FALSE) 
+
+a1.age.gam$gam.statistics %>% select(GAM.smooth.Fvalue, GAM.smooth.pvalue, smooth.decrease.offset) %>% kbl() %>% kable_classic(full_width = F)
+```
+
+**Learning Rate - stage 2**
+
+```{r}
+#GAM to model age spline for stage 2 learning rate
+a2.age.gam <- gam.statistics.smooths(input.df = participants.daw, region = "a2", smooth_var = "age", knots = 3, id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, set_fx = FALSE)
+a2.age.gam$gam.statistics %>% select(GAM.smooth.Fvalue, GAM.smooth.pvalue, smooth.decrease.offset) %>% kbl() %>% kable_classic(full_width = F)
+```
+
+```{r, warning = F}
+ggplot() +
+  #raw data
+    geom_point(data = participants.daw, aes(x = age, y = a1, group = subject_id), color = "black", size = .3, shape = 16) +
+    geom_line(data = participants.daw, aes(x = age, y = a1, group = subject_id), linewidth = 0.2, color = "gray77") +
+    geom_point(data = participants.daw, aes(x = age, y = a2, group = subject_id), color = "black", size = .3, shape = 16) +
+    geom_line(data = participants.daw, aes(x = age, y = a2, group = subject_id), linewidth = 0.2, color = "gray77") +
+  #fitted values
+    geom_line(data = a1.age.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#9f8da3", linewidth = .8) +
+    geom_line(data = a2.age.gam$gam.fittedvalues, aes(x = age, y = fitted), color =  "#64567a", linewidth = .8) +
+    labs(x="\nAge", y=sprintf("Learning Rate\n")) +
+    theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Learningrate_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.9)
+```
+
+**Response Time - stage 1**
+
+```{r}
+#GAM to model age spline for stage 1 response time
+rt1.age.gam <- gam.statistics.smooths(input.df = participants.daw, region = "meanrts1", smooth_var = "age", knots = 3, id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, set_fx = FALSE)
+rt1.age.gam$gam.statistics %>% select(GAM.smooth.Fvalue, GAM.smooth.pvalue, smooth.decrease.offset) %>% kbl() %>% kable_classic(full_width = F)
+```
+
+**Response Time - stage 2**
+
+```{r}
+#GAM to model age spline for stage 2 response time
+rt2.age.gam <- gam.statistics.smooths(input.df = participants.daw, region = "meanrts2", smooth_var = "age", knots = 3, id_var = "subject_id", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, set_fx = FALSE)
+rt2.age.gam$gam.statistics %>% select(GAM.smooth.Fvalue, GAM.smooth.pvalue, smooth.decrease.offset) %>% kbl() %>% kable_classic(full_width = F)
+```
+
+```{r, warning = F}
+ggplot() +
+  #raw data
+    geom_point(data = participants.daw, aes(x = age, y = meanrts1, group = subject_id), color = "black", size = .3, shape = 16) +
+    geom_line(data = participants.daw, aes(x = age, y = meanrts1, group = subject_id), linewidth = 0.2, color = "gray77") +
+    geom_point(data = participants.daw, aes(x = age, y = meanrts2, group = subject_id), color = "black", size = .3, shape = 16) +
+    geom_line(data = participants.daw, aes(x = age, y = meanrts2, group = subject_id), linewidth = 0.2, color = "gray77") +
+  #fitted values
+    geom_line(data = rt1.age.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#7a99c2", linewidth = .8) +
+    geom_line(data = rt2.age.gam$gam.fittedvalues, aes(x = age, y = fitted), color = "#385d7c", linewidth = .8) +
+    labs(x="\nAge", y=sprintf("Response Time\n")) +
+    theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Responsetime_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.9)
+```
+
+# Greater Dorsolateral Prefrontal Myelin Content is Linked to Enhanced Learning Rate During Changing Environmental Contigencies
+
+## R1 - stage 1 learning rate associations
+
+**Depth-specific statistical effect**
+
+Superficial 
+
+```{r, message = F}
+maineffect.dfs$a1_superficial_statistics$gam.statistics.df %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0),  hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+Deep 
+
+```{r, message = F}
+maineffect.dfs$a1_deep_statistics$gam.statistics.df %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+**Depth interactions**
+
+```{r}
+interaction.dfs$a1_depthinteraction$gam.interactions.df %>% mutate(significant = p.adjust(`p-value`, method = "fdr") < 0.05) %>% select(significant) %>% colSums() #superficial deviating more from overall smooth
+```
+
+**Main effects across depths**
+
+```{r}
+maineffect.dfs$a1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+```{r, message = F}
+maineffect.dfs$a1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "#9f8da3"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+```{r, message = F, warning = F}
+model.df <- SGIGmyelin.glasser.depths
+colnames(model.df) <- gsub("-", "_", colnames(model.df))
+
+a1.model <- gam(L_p9_46v_ROI ~ s(age, k = 4, fx = F) + s(a1, k = 3, fx = F) + s(subject_id, bs = "re") + depth, method = "REML", data = model.df)
+
+maineffect.plotdata <- ggpredict(a1.model, terms = c("a1"), interval = "confidence")
+
+plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#9f8da3",  line_size = 1, dot_size = .3, show_title = F, alpha = 1) + 
+  theme_classic() +
+  labs(x="\nLearning Rate: stage 1", y=sprintf("R1 (partial residuals)\n")) +
+  scale_y_continuous(breaks = c(0.56, 0.58, 0.60)) +
+  theme(
+       legend.position = "none", 
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+      axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.line = element_line(linewidth = .2), 
+      axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+```
+
+## R1 - stage 2 learning rate associations
+
+**Depth-specific statistical effect**
+
+Superficial 
+
+```{r, message = F}
+maineffect.dfs$a2_superficial_statistics$gam.statistics.df %>% filter(grepl("lh_", label)) %>%filter(grepl("lh_", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "left") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+Deep 
+
+```{r, message = F}
+maineffect.dfs$a2_deep_statistics$gam.statistics.df %>% filter(grepl("lh_", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "left") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+**Depth interactions**
+
+```{r}
+interaction.dfs$a2_depthinteraction$gam.interactions.df %>% mutate(significant = p.adjust(`p-value`, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+**Main effects across depths**
+
+```{r}
+maineffect.dfs$a2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+```{r, message = F}
+maineffect.dfs$a2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("lh_", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "left") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "#64567a"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+```{r, message = F, warning = F}
+a2.model <- gam(L_p9_46v_ROI ~ s(age, k = 4, fx = F) + s(a2, k = 3, fx = F) + s(subject_id, bs = "re") + depth, method = "REML", data = model.df)
+
+maineffect.plotdata <- ggpredict(a2.model, terms = c("a2"), interval = "confidence")
+
+plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#64567a",  line_size = 1, dot_size = .3, show_title = F, alpha = 1) + 
+  theme_classic() +
+  labs(x="\nLearning Rate: stage 2", y=sprintf("R1 (partial residuals)\n")) +
+  scale_y_continuous(breaks = c(0.56, 0.58, 0.60)) +
+  theme(
+       legend.position = "none", 
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+      axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.line = element_line(linewidth = .2), 
+      axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+```
+
+## Neurosynth decoding of learning rate regions
+
+```{r}
+a2.significant.regions <- maineffect.dfs$a2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(significant == TRUE) %>% select(label) #25 regions with a significant across-depth association between R1 and stage 2 learning rate
+
+neurosynth.terms.a2 <- neurosynth.terms[neurosynth.terms$label %in% a2.significant.regions$label,] %>% select(-label) #neurosynth z-scores in the 25 significant regions
+neurosynth.terms.a2.weights <- colMeans(neurosynth.terms.a2) %>% as.data.frame() %>% set_names("term.mean")
+neurosynth.terms.a2.weights$term <- row.names(neurosynth.terms.a2.weights)
+
+neurosynth.terms.a2.weights %>% slice_max(n = 5, order_by = term.mean) %>%
+ggplot(., aes(x = term.mean, y = term)) +
+  geom_segment(aes(y = reorder(term, term.mean), yend = term, x = 0, xend =  
+                     term.mean), color = "gray75", linewidth = .5) +
+  geom_point(size = 1.5, color = "#64567a") +
+  xlab("\nNeurosynth Term Score (z)") +
+  ylab("") +
+  theme_classic() +
+  scale_x_continuous(breaks = c(0, 0.2, 0.4, 0.6), limits = c(0, 0.6)) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.text.y = element_text(angle = 0, hjust = 1),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_neurosynth_decoding.pdf", device = "pdf", dpi = 500, width = 2.2, height = 1.35)
+```
+
+# Greater Frontal Myelin Content is Linked to Faster Processing Speed
+
+## R1 - stage 1 response time associations
+
+**Depth-specific statistical effect**
+
+Superficial 
+
+```{r, message = F}
+maineffect.dfs$rt1_superficial_statistics$gam.statistics.df %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+Deep 
+
+```{r, message = F}
+maineffect.dfs$rt1_deep_statistics$gam.statistics.df %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+**Depth interactions**
+
+```{r}
+interaction.dfs$rt1_depthinteraction$gam.interactions.df %>% mutate(significant = p.adjust(`p-value`, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+**Main effects across depths**
+
+```{r}
+maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+```{r, message = F}
+maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("rh_", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "#7a99c2"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+```{r message=FALSE, include=FALSE}
+maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "black"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75"))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+```
+
+```{r, message = F, warning = F}
+rt1.model <- gam(L_p9_46v_ROI ~ s(age, k = 4, fx = F) + s(meanrts1, k = 3, fx = F) + s(subject_id, bs = "re") + depth, method = "REML", data = model.df)
+
+maineffect.plotdata <- ggpredict(rt1.model, terms = c("meanrts1"), interval = "confidence")
+
+plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#7a99c2",  line_size = 1, dot_size = .3, show_title = F, alpha = 1) + 
+  theme_classic() +
+  labs(x="\nRespone Time: stage 1", y=sprintf("R1 (partial residuals)\n")) +
+  scale_y_continuous(breaks = c(0.56, 0.58, 0.60)) +
+  theme(
+       legend.position = "none", 
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+      axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.line = element_line(linewidth = .2), 
+      axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+```
+
+## R1 - stage 2 response time associations
+
+**Depth-specific statistical effect**
+
+Superficial 
+
+```{r}
+maineffect.dfs$rt2_superficial_statistics$gam.statistics.df %>% filter(grepl("lh_", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "left") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+Deep 
+
+```{r}
+maineffect.dfs$rt2_deep_statistics$gam.statistics.df %>% filter(grepl("lh_", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = GAM.covsmooth.Fvalue), colour=I("gray20"), size=I(.08), hemi = "left") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   paletteer::scale_fill_paletteer_c("scico::acton", direction = -1,  na.value = "white", limits = c(0, 6), oob = squish) +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+**Depth interactions**
+
+```{r}
+interaction.dfs$rt2_depthinteraction$gam.interactions.df %>% mutate(significant = p.adjust(`p-value`, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+**Main effects across depths**
+
+```{r}
+maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+```{r, message = F}
+maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("lh_", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "left") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "#385d7c"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+```
+
+```{r message=FALSE, include=FALSE}
+maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "black"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75"))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+```
+
+```{r, message = F, warning = F}
+rt2.model <- gam(L_p9_46v_ROI ~ s(age, k = 4, fx = F) + s(meanrts2, k = 3, fx = F) + s(subject_id, bs = "re") + depth, method = "REML", data = model.df)
+
+maineffect.plotdata <- ggpredict(rt2.model, terms = c("meanrts2"), interval = "confidence")
+
+plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#385d7c",  line_size = 1, dot_size = .3, show_title = F, alpha = 1) + 
+  theme_classic() +
+  labs(x="\nRespone Time: stage 2", y=sprintf("R1 (partial residuals)\n")) +
+  scale_y_continuous(breaks = c(0.56, 0.58, 0.60)) +
+  theme(
+       legend.position = "none", 
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+      axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
+      axis.line = element_line(linewidth = .2), 
+      axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+```
+
+## Prefrontal Myelin is important for processing speed when engaging higher-order cognition
+
+### R1 - anti-saccade associations 
+
+```{r}
+maineffect.dfs$antilatency_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+```{r, message = F}
+maineffect.dfs$antilatency_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "black"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75"))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/anti_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+```
+
+### R1 - visually-guided saccade associations
+
+```{r}
+maineffect.dfs$vgslatency_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% select(significant) %>% colSums()
+```
+
+```{r, message = F}
+maineffect.dfs$vgslatency_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(grepl("rh_R", label)) %>%
+  ggplot(data = .) + 
+  geom_brain(atlas = glasser, mapping = aes(fill = significant), colour=I("gray20"), size=I(.08), hemi = "right") + theme_classic() + theme(legend.position = "none") + 
+    theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+   scale_fill_manual(values = c("white", "black"), na.value = "white") +
+  new_scale_fill() + 
+  geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75"))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/vgs_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+```
+
+### Statistical Effects Comparison for Response/Reaction Times Across Tasks
+
+```{r, warning = F}
+#Compare GAM statistics derived from across-depth main effects when associating R1 with stage 1 response time, stage 2 response time, anti-saccade response time, and visually-guided saccade reaction time. Statistics are from identical models 
+rt.statistics <- data.frame(rt1 = maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, rt2 = maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, anti = maineffect.dfs$antilatency_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, vgs = maineffect.dfs$vgslatency_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue) #giving all the F(values)
+rt.statistics <- rt.statistics %>% pivot_longer(everything(), names_to = "task", values_to = "RT")
+rt.statistics$task <- factor(rt.statistics$task, levels = c("rt1", "rt2", "anti", "vgs"))
+
+ggplot(rt.statistics, aes(x = task , y= RT)) + 
+  geom_boxplot(outlier.shape = NA, linewidth = .3) + 
+  theme_classic() + 
+  scale_y_continuous(limits = c(0, 17)) +
+  scale_x_discrete(expand = c(0.12, 0.12), labels = c("stage 1", "stage 2", "anti-saccade", "visual saccade")) +
+  labs(x="\nCognitive Task", y=sprintf("R1-RT Statistic (F)\n")) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/R1RT_effectcomparison_boxplot.pdf", device = "pdf", dpi = 500, width = 2.03, height = 1.4)
+```
+
+# Significant Effects Survive Stringent Multiple Comparison Correction
+
+```{r}
+ps <- c(maineffect.dfs$a1_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.pvalue, maineffect.dfs$a2_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.pvalue, maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.pvalue, maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.pvalue)
+
+p.fdr.sig <- sum(p.adjust(ps, method = "fdr") < 0.05)
+sprintf("%s of the original 156 significant regional effects remain significant when FDR-correcting across all sequential learning task analyses", p.fdr.sig)
+```
