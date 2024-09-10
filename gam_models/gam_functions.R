@@ -621,10 +621,10 @@ gam.factorsmooth.interaction <- function(input.df, region, smooth_var, smooth_va
   gam.smooth.stats <- gam.smooth.stats[grepl(smooth_covariate, rownames(gam.smooth.stats)), ] #get statistics for the smooth_covariate
   
   #F-value and p-value for the overall effect of the smooth_covariate
-  gam.smooth.maineffect <- gam.smooth.stats[!grepl(int_var, rownames(gam.smooth.stats)), ] #get stats for any non-interaction terms (overall effect)
-  gam.smooth.maineffect$orig_parcelname <- parcel
-  gam.smooth.maineffect <- gam.smooth.maineffect %>% select("orig_parcelname", "F", "p-value")
-  rownames(gam.smooth.maineffect) <- NULL
+  gam.smooth.baseeffect <- gam.smooth.stats[!grepl(int_var, rownames(gam.smooth.stats)), ] #get stats for any non-interaction term (base smooth or overall smooth)
+  gam.smooth.baseeffect$orig_parcelname <- parcel
+  gam.smooth.baseeffect <- gam.smooth.baseeffect %>% select("orig_parcelname", "F", "p-value")
+  rownames(gam.smooth.baseeffect) <- NULL
   
   #F-value and p-values for interaction term(s)
   gam.smooth.interactioneffect <- gam.smooth.stats[grepl(int_var, rownames(gam.smooth.stats)), ]
@@ -633,12 +633,11 @@ gam.factorsmooth.interaction <- function(input.df, region, smooth_var, smooth_va
   gam.smooth.interactioneffect <- gam.smooth.interactioneffect %>% select("orig_parcelname", all_of(int_var), "F", "p-value")
   rownames(gam.smooth.interactioneffect) <- NULL
   
-  gam.statistics <- list(gam.smooth.maineffect, gam.smooth.interactioneffect)
-  names(gam.statistics) <- list("gam.covsmooth.maineffect", "gam.covsmooth.interaction")
+  gam.statistics <- list(gam.smooth.baseeffect, gam.smooth.interactioneffect)
+  names(gam.statistics) <- list("gam.covsmooth.baseeffect", "gam.covsmooth.interaction")
   
   return(gam.statistics)
 }
-
 
 
 
