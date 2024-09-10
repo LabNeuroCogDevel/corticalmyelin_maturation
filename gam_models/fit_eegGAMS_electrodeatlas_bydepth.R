@@ -22,7 +22,7 @@ R1_aperiodicactivity_electrodeatlas <- lapply(R1_aperiodicactivity_electrodeatla
 })
 
 SGIGR1_aperiodicactivity_electrodeatlas <- do.call(rbind, R1_aperiodicactivity_electrodeatlas)
-SGIGR1_aperiodicactivity_electrodeatlas$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas)), levels = c("deep", "superficial"), ordered = F) 
+SGIGR1_aperiodicactivity_electrodeatlas$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas)), levels = c("deep", "superficial"), ordered = T) 
 
 #Gam functions
 source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/gam_models/gam_functions.R")
@@ -103,17 +103,18 @@ R1.aperiodic.interaction.gams <- function(input.depth.df, aperiodic.measure, out
     gam.factorsmooth.interaction(input.df = input.depth.df, region = sprintf("%s_R1", r), 
                                    smooth_var = "age", smooth_var_knots = 4, smooth_covariate = sprintf("%s_%s", r, aperiodic.measure), smooth_covariate_knots = 3, 
                                    int_var = "depth", linear_covariates = "depth", id_var = "subject_id", random_intercepts = TRUE, set_fx = FALSE)}) 
-    
-    #Extract and combine main effect ouputs
-    gam.maineffects.df <- lapply(gam.outputs.regionlist, '[[', "gam.covsmooth.maineffect" ) #extract this df from each region's list
-    gam.maineffects.df <- do.call(rbind, gam.maineffects.df) #merge them into one 
   
-    #Extract and combine interaction ouputs
+  
+    #Extract and combine base effect outputs
+    gam.baseeffects.df <- lapply(gam.outputs.regionlist, '[[', "gam.covsmooth.baseeffect" ) #extract this df from each region's list
+    gam.baseeffects.df <- do.call(rbind, gam.baseeffects.df) #merge them into one 
+    
+    #Extract and combine interaction outputs
     gam.interactions.df <- lapply(gam.outputs.regionlist, '[[', "gam.covsmooth.interaction" ) #extract this df from each region's list
     gam.interactions.df <- do.call(rbind, gam.interactions.df) #merge them into one 
     
-    gam.statistics.df <- list(gam.maineffects.df, gam.interactions.df)
-    names(gam.statistics.df) <- list("gam.maineffects.df", "gam.interactions.df")
+    gam.statistics.df <- list(gam.baseeffects.df, gam.interactions.df)
+    names(gam.statistics.df) <- list("gam.baseeffects.df", "gam.interactions.df")
     saveRDS(gam.statistics.df, sprintf("/Volumes/Hera/Projects/corticalmyelin_development/gam_outputs/eeg_associations/%s", output.df.name))
 }
     
@@ -143,7 +144,7 @@ R1_aperiodicactivity_electrodeatlas_brodmann <- lapply(R1_aperiodicactivity_elec
 })
 
 SGIGR1_aperiodicactivity_electrodeatlas_brodmann <- do.call(rbind, R1_aperiodicactivity_electrodeatlas_brodmann)
-SGIGR1_aperiodicactivity_electrodeatlas_brodmann$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas_brodmann)), levels = c("deep", "superficial"), ordered = F)
+SGIGR1_aperiodicactivity_electrodeatlas_brodmann$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas_brodmann)), levels = c("deep", "superficial"), ordered = T)
 
 ############################################################################################################
 #### Fit GAMs to quantify depth-specific associations between R1 and aperiodic activity ####

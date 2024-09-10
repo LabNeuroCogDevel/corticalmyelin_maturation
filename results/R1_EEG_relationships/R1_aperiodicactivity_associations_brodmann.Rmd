@@ -48,7 +48,7 @@ R1_aperiodicactivity_electrodeatlas_brodmann <- lapply(R1_aperiodicactivity_elec
 
 #Long depth df for interaction plotting
 SGIGR1_aperiodicactivity_electrodeatlas_brodmann <- do.call(rbind, R1_aperiodicactivity_electrodeatlas_brodmann)
-SGIGR1_aperiodicactivity_electrodeatlas_brodmann$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas_brodmann)), levels = c("deep", "superficial"), ordered = F)
+SGIGR1_aperiodicactivity_electrodeatlas_brodmann$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas_brodmann)), levels = c("deep", "superficial"), ordered = T)
 ```
 
 R1 - aperiodic activity gam outputs
@@ -111,7 +111,6 @@ ggseg(.data = brodmann.regions, atlas = "brodmann", mapping = aes(fill = group),
 ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7_supplementary/Brodmann_atlas.pdf", device = "pdf", dpi = 500, width = 2.15, height = 1.96)
 ```
 
-
 # Deep Cortex Myelin Impacts an E/I-Linked Measure of Functional Maturation
 
 ## Superficial cortex R1 - aperiodic exponent associations
@@ -159,27 +158,20 @@ ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Fig
 
 ## R1 - aperiodic exponent interactions by cortical depth
 
-#### Main (overall) effects
-
-```{r}
-R1exponent_depth_interaction_brodmann$gam.maineffects.df %>% kbl() %>% kable_classic(full_width = F)
-```
-
 #### Interaction effects
 
 ```{r}
 R1exponent_depth_interaction_brodmann$gam.interactions.df %>% kbl() %>% kable_classic(full_width = F)
 ```
 
-
 ```{r, message = F}
-BA9.interaction.model <- gam(Brodmann.9_R1 ~ s(age, k = 4, fx = F) + s(Brodmann.9_exponent, k = 3, fx = F) + s(Brodmann.9_exponent, by = depth, k = 3) + s(subject_id, bs="re") + depth, method = c("REML"), data = SGIGR1_aperiodicactivity_electrodeatlas_brodmann) 
+BA45.interaction.model <- gam(Brodmann.45_R1 ~ s(age, k = 4, fx = F) + s(Brodmann.45_exponent, k = 3, fx = F) + s(Brodmann.45_exponent, by = depth, k = 3) + s(subject_id, bs="re") + depth, method = c("REML"), data = SGIGR1_aperiodicactivity_electrodeatlas_brodmann) 
 
-interaction.plotdata <- ggpredict(BA9.interaction.model, terms = c("Brodmann.9_exponent", "depth"), interval = "confidence")
+interaction.plotdata <- ggpredict(BA45.interaction.model, terms = c("Brodmann.45_exponent", "depth"), interval = "confidence")
 plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38FF", "#A29DC4"), line_size = 1, dot_size = 1, show_title = F) + 
   theme_classic() +
   labs(x="\nAperiodic Exponent", y=sprintf("R1 (adjusted)\n")) +
-  scale_x_continuous(breaks = c(1, 1.5, 2)) +
+  scale_x_continuous(breaks = c(0.5, 1, 1.5)) +
   scale_y_continuous(breaks = c(0.5, 0.54, 0.58)) +
   theme(
        legend.position = "none", 
@@ -191,7 +183,7 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7_supplementary/BA9_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 2.16, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7_supplementary/BA45_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 2.16, height = 1.95)
 ```
 
 

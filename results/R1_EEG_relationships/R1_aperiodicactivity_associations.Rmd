@@ -52,7 +52,7 @@ R1_aperiodicactivity_electrodeatlas <- lapply(R1_aperiodicactivity_electrodeatla
 
 #Long depth df for interaction plotting
 SGIGR1_aperiodicactivity_electrodeatlas <- do.call(rbind, R1_aperiodicactivity_electrodeatlas)
-SGIGR1_aperiodicactivity_electrodeatlas$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas)), levels = c("deep", "superficial"), ordered = F)
+SGIGR1_aperiodicactivity_electrodeatlas$depth <- factor(sub("\\..*$", "", row.names(SGIGR1_aperiodicactivity_electrodeatlas)), levels = c("deep", "superficial"), ordered = T)
 
 fooof.data <- R1_aperiodicactivity_electrodeatlas[[1]] #for aperiodic activity developmental models 
 ```
