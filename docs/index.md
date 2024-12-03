@@ -26,7 +26,7 @@ https://github.com/LabNeuroCogDevel/corticalmyelin_maturation
 ### Project Directories
 The project directory on rhea is: **/Volumes/Hera/Projects/corticalmyelin_development**
 
-The directory structure on rhea is as follows:
+The directory structure on rhea is as follows below:
 
 ```
 BIDS: BIDS-compliant MP2RAGE data
