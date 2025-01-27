@@ -97,7 +97,7 @@ type="2d")
 ```
 
 ```{r include=FALSE}
-pdf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Electrodes_eegcap_all.pdf", width = 1.5, height = 1)
+pdf("/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Electrodes_eegcap_all.pdf", width = 1.5, height = 1)
 
 eegkit::eegcap(electrodes = c("F7", "F8", #vlpfc
 "AF5", "AF6", "F3", "F4", "F5", "F6",     #dlpfc
@@ -118,7 +118,7 @@ dev.off()
 
 ## Power spectrums in developmental groups
 
-````{r}
+```{r}
 electrode.list <- c("F7", "F8", "AF5", "AF6", "F3", "F4", "F5", "F6", "AF1", "AF2", "F1", "F2", "FC1", "FC2", "FC3", "FC4")
 power.data <- power.data[power.data$labels %in% electrode.list,]
 power.data <- power.data %>% filter(freqs > 5) %>% filter(freqs < 50)
@@ -151,7 +151,7 @@ ggplot() +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Powerspectrum_agebinned.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Powerspectrum_agebinned.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.95)
 ```
 
 ## Aperiodic exponent development
@@ -208,10 +208,10 @@ ggplot() +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Exponent_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Exponent_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.95)
 ```
 
-# Deep Cortex Myelin Impacts an E/I-Linked Measure of Functional Maturation
+# Frontal Cortex Myelin Supports E/I-linked Neural Dynamics
 
 ## Superficial cortex R1 - aperiodic exponent associations
 
@@ -250,7 +250,7 @@ ggplot(R1exponent.plotdata, aes (x = orig_parcelname, y = GAM.covsmooth.Fvalue, 
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/R1Exponent_Fvalue_depthplot.pdf", device = "pdf", dpi = 500, width = 1.7, height = 1.94)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/R1Exponent_Fvalue_depthplot.pdf", device = "pdf", dpi = 500, width = 1.7, height = 1.94)
 ```
 
 ## R1 - aperiodic exponent interactions by cortical depth
@@ -282,7 +282,7 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/VLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/VLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
 ```
 
 ```{r, message = F}
@@ -304,7 +304,7 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/DLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/DLPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
 ```
 
 ```{r, message = F}
@@ -326,7 +326,7 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/SPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/SPFC_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
 ```
 
 ```{r, message = F}
@@ -347,7 +347,7 @@ plot(interaction.plotdata, show_residuals = T,  show_ci = F, colors = c("#004A38
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Motor_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure6/Motor_R1exponent_depthinteraction.pdf", device = "pdf", dpi = 500, width = 1.95, height = 1.95)
 ```
 
  
