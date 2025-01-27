@@ -24,6 +24,7 @@ library(kableExtra)
 library(mgcv)
 library(ggeffects)
 library(PupillometryR)
+library(stats)
 extrafont::loadfonts()
 source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/gam_models/gam_functions.R")
 ```
@@ -154,8 +155,10 @@ interaction.dfs <- lapply(interaction.dfs, format_int_dfs)
 ```{r}
 #Paired t-test for learning rates between task stages 1 and 2
 participants.daw.long <- participants.daw %>% pivot_longer(cols = c("a1", "a2"), names_to = "task.stage", values_to = "learning.rate") %>% mutate(subses = as.factor(sprintf("%s_%s", subject_id, session_id)))
+```
 
-t.test(learning.rate ~ task.stage, paired = TRUE, data = participants.daw.long)
+```{r}
+t.test(participants.daw$a1, participants.daw$a2, paired = TRUE)
 ```
 
 ```{r, warning = F}
@@ -177,7 +180,7 @@ ggplot(participants.daw.long, aes(x = task.stage, y = learning.rate, color = tas
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Learningrate_stageeffect.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.2)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Learningrate_stageeffect.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.2)
 ```
 
 **Response time**
@@ -186,7 +189,7 @@ ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Fig
 #Paired t-test for response times between task stages 1 and 2
 participants.daw.long <- participants.daw %>% pivot_longer(cols = c("meanrts1", "meanrts2"), names_to = "task.stage", values_to = "response.time") %>% mutate(subses = as.factor(sprintf("%s_%s", subject_id, session_id)))
 
-t.test(response.time ~ task.stage, paired = TRUE, data = participants.daw.long)
+t.test(participants.daw$meanrts1, participants.daw$meanrts2, paired = TRUE)
 ```
 
 ```{r, warning = F}
@@ -208,7 +211,7 @@ ggplot(participants.daw.long, aes(x = task.stage, y = response.time, color = tas
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Responsetime_stageeffect.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.2)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Responsetime_stageeffect.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.2)
 ```
 
 ## Developmental Improvements in Task Performance
@@ -252,7 +255,7 @@ ggplot() +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Learningrate_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.9)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Learningrate_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.9)
 ```
 
 **Response Time - stage 1**
@@ -293,7 +296,7 @@ ggplot() +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/Responsetime_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.9)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Responsetime_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.9)
 ```
 
 # Greater Dorsolateral Prefrontal Myelin Content is Linked to Enhanced Learning Rate During Changing Environmental Contigencies
@@ -314,7 +317,7 @@ maineffect.dfs$a1_superficial_statistics$gam.statistics.df %>% filter(grepl("rh_
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0),  hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a1_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 Deep 
@@ -329,7 +332,7 @@ maineffect.dfs$a1_deep_statistics$gam.statistics.df %>% filter(grepl("rh_R", lab
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a1_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 **Depth interactions**
@@ -354,7 +357,7 @@ maineffect.dfs$a1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a1_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 ```{r, message = F, warning = F}
@@ -379,7 +382,7 @@ plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#9f8da3",  
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a1_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a1_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
 ```
 
 ## R1 - stage 2 learning rate associations
@@ -398,7 +401,7 @@ maineffect.dfs$a2_superficial_statistics$gam.statistics.df %>% filter(grepl("lh_
   geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a2_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 Deep 
@@ -413,7 +416,7 @@ maineffect.dfs$a2_deep_statistics$gam.statistics.df %>% filter(grepl("lh_", labe
   geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a2_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 **Depth interactions**
@@ -438,7 +441,7 @@ maineffect.dfs$a2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant
   geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a2_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 ```{r, message = F, warning = F}
@@ -460,7 +463,7 @@ plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#64567a",  
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a2_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
 ```
 
 ## Neurosynth decoding of learning rate regions
@@ -492,7 +495,7 @@ ggplot(., aes(x = term.mean, y = term)) +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/a2_neurosynth_decoding.pdf", device = "pdf", dpi = 500, width = 2.2, height = 1.35)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/a2_neurosynth_decoding.pdf", device = "pdf", dpi = 500, width = 2.2, height = 1.35)
 ```
 
 # Greater Frontal Myelin Content is Linked to Faster Processing Speed
@@ -513,7 +516,7 @@ maineffect.dfs$rt1_superficial_statistics$gam.statistics.df %>% filter(grepl("rh
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt1_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 Deep 
@@ -528,7 +531,7 @@ maineffect.dfs$rt1_deep_statistics$gam.statistics.df %>% filter(grepl("rh_R", la
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt1_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 **Depth interactions**
@@ -553,7 +556,7 @@ maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significan
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt1_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 ```{r message=FALSE, include=FALSE}
@@ -566,7 +569,7 @@ maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significan
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75"))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt1_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
 ```
 
 ```{r, message = F, warning = F}
@@ -588,7 +591,7 @@ plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#7a99c2",  
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt1_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt1_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
 ```
 
 ## R1 - stage 2 response time associations
@@ -607,7 +610,7 @@ maineffect.dfs$rt2_superficial_statistics$gam.statistics.df %>% filter(grepl("lh
   geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt2_corticalmap_superficial.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 Deep 
@@ -622,7 +625,7 @@ maineffect.dfs$rt2_deep_statistics$gam.statistics.df %>% filter(grepl("lh_", lab
   geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt2_corticalmap_deep.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 **Depth interactions**
@@ -647,7 +650,7 @@ maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significan
   geom_brain(data = (glasser.plotting %>% filter(grepl("lh_", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "left") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt2_corticalmap_significant.pdf", device = "pdf", dpi = 500, width = 1.45, height = 1.45)
 ```
 
 ```{r message=FALSE, include=FALSE}
@@ -660,7 +663,7 @@ maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significan
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75"))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt2_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
 ```
 
 ```{r, message = F, warning = F}
@@ -682,7 +685,7 @@ plot(maineffect.plotdata, show_residuals = T,  show_ci = F, color = "#385d7c",  
       axis.line = element_line(linewidth = .2), 
       axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/rt2_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/rt2_R1_partialresidual_plot.pdf", device = "pdf", dpi = 500, width = 1.475, height = 1.35)
 ```
 
 ## Prefrontal Myelin is important for processing speed when engaging higher-order cognition
@@ -703,7 +706,7 @@ maineffect.dfs$antilatency_SGIGdepths_maineffect$gam.statistics.df %>% mutate(si
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75"))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/anti_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/anti_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
 ```
 
 ### R1 - visually-guided saccade associations
@@ -722,7 +725,7 @@ maineffect.dfs$vgslatency_SGIGdepths_maineffect$gam.statistics.df %>% mutate(sig
   geom_brain(data = (glasser.plotting %>% filter(grepl("rh_R", label))), atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0), hemi = "right") +
   scale_fill_manual(values = c(alpha("white", 0), "gray75"))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/vgs_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/vgs_significantmap_boxplot.pdf", device = "pdf", dpi = 500, width = 1, height = 1)
 ```
 
 ### Statistical Effects Comparison for Response/Reaction Times Across Tasks
@@ -749,7 +752,7 @@ ggplot(rt.statistics, aes(x = task , y= RT)) +
         axis.line = element_line(linewidth = .2), 
         axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure8/R1RT_effectcomparison_boxplot.pdf", device = "pdf", dpi = 500, width = 2.03, height = 1.4)
+ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/R1RT_effectcomparison_boxplot.pdf", device = "pdf", dpi = 500, width = 2.03, height = 1.4)
 ```
 
 # Significant Effects Survive Stringent Multiple Comparison Correction
