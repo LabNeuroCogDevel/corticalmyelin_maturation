@@ -1,6 +1,6 @@
 <br>
 <br>
-# Heterochronous myelin maturation in the human prefrontal cortical ribbon 
+# Heterochronous laminar maturation in the human prefrontal cortex 
 
 ### Project Lead
 Valerie J. Sydnor
