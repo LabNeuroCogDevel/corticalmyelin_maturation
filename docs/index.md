@@ -170,4 +170,19 @@ Relationships between superficial and deep cortex R1 and EEG-derived aperiodic p
 ### Associations Between Cortical R1 and Cognitive Abilities
 We studied relationships between superficial and deep cortex R1 and cognitive subprocesses, including learning rates and processing speeds. Cognitive testing utilized a two-stage sequential decision-making task, an anti-saccade task, and a visually-guided saccade test (the latter 2 tests used for specificity analyses). Learning rates were obtained by fitting a 7-parameter reinforcement learning model to trial-level data on the sequential decision-making task; a seperate learning rate was obtained for each of the 2 stages of the task. Cognitive processing speed was proxied by the average across-trial response time on each of the 2 stages of the task.
 
-Analyses examining the influence of cortical R1 on cognitive measures are presented in [/results/R1_cognition_relationships/R1_cognition_associations.Rmd](https://github.com/LabNeuroCogDevel/corticalmyelin_maturation/blob/main/results/R1_cognition_relationships/R1_cognition_associations.Rmd). This markdown explores developmental changes in learning rate and processing speed on both stages of the task and characterizes depth-specific and across-depth relationships between R1 and cognitive measures. It furthermore includes Neurosynth decoding of brain regions where myelin is linked to learning rates and a specificity analysis using anti-saccade and visually-guided saccade data. A rendered version of the html is viewable [here](https://htmlpreview.github.io/?https://github.com/LabNeuroCogDevel/corticalmyelin_maturation/blob/main/results/R1_cognition_relationships/R1_cognition_associations.html). 
+Analyses examining the influence of cortical R1 on cognitive measures are presented in [/results/R1_cognition_relationships/R1_cognition_associations.Rmd](https://github.com/LabNeuroCogDevel/corticalmyelin_maturation/blob/main/results/R1_cognition_relationships/R1_cognition_associations.Rmd). This markdown explores developmental changes in learning rate and processing speed on both stages of the task and characterizes depth-specific and across-depth relationships between R1 and cognitive measures. It furthermore includes Neurosynth decoding of brain regions where myelin is linked to learning rates and a specificity analysis using anti-saccade and visually-guided saccade data. A rendered version of the html is viewable [here](https://htmlpreview.github.io/?https://github.com/LabNeuroCogDevel/corticalmyelin_maturation/blob/main/results/R1_cognition_relationships/R1_cognition_associations.html).
+
+# SOFTWARE 
+Software dependencies, versions, and system requirements
+- SPM BIDS app container (https://hub.docker.com/r/bids/spm/)
+- FreeSurfer BIDS app container; tag freesurfer:7.4.1-202309 (https://hub.docker.com/r/bids/freesurfer)
+- Neuromaps container; tag 0.0.4 (https://hub.docker.com/r/netneurolab/neuromaps)
+- AFNI version 23.1.10 for Linux
+- Connectome Workbench 1.5.0 (https://github.com/Washington-University/workbench/releases)
+- EEG lab 2022.1 (https://eeglab.org/others/Compiled_EEGLAB.html)
+- FOOOF 1.0.0 (https://fooof-tools.github.io/fooof/)
+- Brainstorm 03 (https://github.com/brainstorm-tools/brainstorm3)
+- BrainSMASH 0.11.0 (https://brainsmash.readthedocs.io/en/latest/index.html)
+- R version 4.2.23
+- hBayesDM in R (https://github.com/LabNeuroCogDevel/daw_tissue_iron/blob/main/hBayesDM_script.R)
+- No non-standard hardware required 
