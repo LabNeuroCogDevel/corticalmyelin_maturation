@@ -14,13 +14,13 @@ grouping = 'AcquisitionDate'
 
 ## MP2RAGE
 inv1_phase = create_key(
-    'sub-{subject}/{session}/anat/sub-{subject}_{session}_inv-1_part-mag_MP2RAGE')
-inv1_mag = create_key(
     'sub-{subject}/{session}/anat/sub-{subject}_{session}_inv-1_part-phase_MP2RAGE')
+inv1_mag = create_key(
+    'sub-{subject}/{session}/anat/sub-{subject}_{session}_inv-1_part-mag_MP2RAGE')
 inv2_phase = create_key(
-    'sub-{subject}/{session}/anat/sub-{subject}_{session}_inv-2_part-mag_MP2RAGE')
-inv2_mag = create_key(
     'sub-{subject}/{session}/anat/sub-{subject}_{session}_inv-2_part-phase_MP2RAGE')
+inv2_mag = create_key(
+    'sub-{subject}/{session}/anat/sub-{subject}_{session}_inv-2_part-mag_MP2RAGE')
 UNI = create_key(
     'sub-{subject}/{session}/anat/sub-{subject}_{session}_UNIT1')
 UNIDEN = create_key(
