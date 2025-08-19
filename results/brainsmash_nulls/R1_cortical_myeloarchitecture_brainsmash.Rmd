@@ -81,9 +81,7 @@ for(map in c("map1", "map100", "map200", "map300", "map400", "map500", "map600",
 surrogate_maps.myelin <- left_join(surrogate_maps, myelin.maps, by = c("orig_parcelname", "label")) #ensure regional ordering matches across all null and empirical maps to be correlated
 surrogate_maps <- surrogate_maps %>% select(contains("map")) #just the 1000 null maps
 R1 <- surrogate_maps.myelin %>% select(mean.R1)
-MWF <- surrogate_maps.myelin %>% select(MWF)
-MBP <- surrogate_maps.myelin %>% select(MBP)
-SA.axis <- surrogate_maps.myelin %>% select(SA.axis)
+myelin.map.PC1 <- surrogate_maps.myelin %>% select(PC1)
 ```
 
 ```{r}
@@ -104,22 +102,10 @@ brainsmash.results <- function(empirical.map){
 }
 ```
 
-## R1 and Myelin Water Fraction
+## R1 and Myelin Map PC1
 
 ```{r}
-brainsmash.results(empirical.map = MWF)
-```
-
-## R1 and Myelin Basic Protein
-
-```{r}
-brainsmash.results(empirical.map = MBP)
-```
-
-## R1 and S-A Axis
-
-```{r}
-brainsmash.results(empirical.map = SA.axis)
+brainsmash.results(empirical.map = myelin.map.PC1)
 ```
 
 
