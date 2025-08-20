@@ -89,13 +89,10 @@ myelin.map.PC1 <- surrogate_maps.myelin %>% select(PC1)
 brainsmash.results <- function(empirical.map){
   empirical.cor <- cor(empirical.map, R1, method = c("spearman"), use = "complete.obs") #true correlation 
   null.cors <- cor(empirical.map, surrogate_maps, method = c("spearman"), use = "complete.obs") #correlation with brainsmash based surrogates 
-  mean.nullcor <- mean(null.cors)
-  if(empirical.cor > 0){
-    brainsmash.p <- sum(null.cors > empirical.cor[1])/1000
-  }
-  if(empirical.cor < 0){
-    brainsmash.p <- sum(null.cors < empirical.cor[1])/1000
-  }
+  mean.nullcor <- mean(abs(null.cors))*-1 #null correlation direction is arbitrary make all corrs negative so we are comparing correlation strength between negative rs
+ 
+  brainsmash.p <- sum(null.cors < empirical.cor[1])/1000
+
   smash.results <- list(empirical.cor[1], mean.nullcor, brainsmash.p)
   names(smash.results) <- list("empirical.cor", "average.null.cor", "brainsmash.pvalue")
   return(smash.results)

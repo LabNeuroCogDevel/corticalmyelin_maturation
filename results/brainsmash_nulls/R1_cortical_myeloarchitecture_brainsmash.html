@@ -1084,17 +1084,14 @@ Brainsmash Null-Based Correlation Significance</a></li>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>brainsmash.results <span class="ot">&lt;-</span> <span class="cf">function</span>(empirical.map){</span>
 <span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  empirical.cor <span class="ot">&lt;-</span> <span class="fu">cor</span>(empirical.map, R1, <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;spearman&quot;</span>), <span class="at">use =</span> <span class="st">&quot;complete.obs&quot;</span>) <span class="co">#true correlation </span></span>
 <span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  null.cors <span class="ot">&lt;-</span> <span class="fu">cor</span>(empirical.map, surrogate_maps, <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;spearman&quot;</span>), <span class="at">use =</span> <span class="st">&quot;complete.obs&quot;</span>) <span class="co">#correlation with brainsmash based surrogates </span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  mean.nullcor <span class="ot">&lt;-</span> <span class="fu">mean</span>(null.cors)</span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="cf">if</span>(empirical.cor <span class="sc">&gt;</span> <span class="dv">0</span>){</span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>    brainsmash.p <span class="ot">&lt;-</span> <span class="fu">sum</span>(null.cors <span class="sc">&gt;</span> empirical.cor[<span class="dv">1</span>])<span class="sc">/</span><span class="dv">1000</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  }</span>
-<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="cf">if</span>(empirical.cor <span class="sc">&lt;</span> <span class="dv">0</span>){</span>
-<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>    brainsmash.p <span class="ot">&lt;-</span> <span class="fu">sum</span>(null.cors <span class="sc">&lt;</span> empirical.cor[<span class="dv">1</span>])<span class="sc">/</span><span class="dv">1000</span></span>
-<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  }</span>
-<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  smash.results <span class="ot">&lt;-</span> <span class="fu">list</span>(empirical.cor[<span class="dv">1</span>], mean.nullcor, brainsmash.p)</span>
-<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  <span class="fu">names</span>(smash.results) <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="st">&quot;empirical.cor&quot;</span>, <span class="st">&quot;average.null.cor&quot;</span>, <span class="st">&quot;brainsmash.pvalue&quot;</span>)</span>
-<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="fu">return</span>(smash.results)</span>
-<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>}</span></code></pre></div>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  mean.nullcor <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(null.cors))<span class="sc">*-</span><span class="dv">1</span> <span class="co">#null correlation direction is arbitrary make all corrs negative so we are comparing correlation strength between negative rs</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a> </span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  brainsmash.p <span class="ot">&lt;-</span> <span class="fu">sum</span>(null.cors <span class="sc">&lt;</span> empirical.cor[<span class="dv">1</span>])<span class="sc">/</span><span class="dv">1000</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  smash.results <span class="ot">&lt;-</span> <span class="fu">list</span>(empirical.cor[<span class="dv">1</span>], mean.nullcor, brainsmash.p)</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="fu">names</span>(smash.results) <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="st">&quot;empirical.cor&quot;</span>, <span class="st">&quot;average.null.cor&quot;</span>, <span class="st">&quot;brainsmash.pvalue&quot;</span>)</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="fu">return</span>(smash.results)</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>}</span></code></pre></div>
 <div id="r1-and-myelin-map-pc1" class="section level2">
 <h2>R1 and Myelin Map PC1</h2>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">brainsmash.results</span>(<span class="at">empirical.map =</span> myelin.map.PC1)</span></code></pre></div>
@@ -1102,7 +1099,7 @@ Brainsmash Null-Based Correlation Significance</a></li>
 ## [1] -0.6355542
 ## 
 ## $average.null.cor
-## [1] -0.003742077
+## [1] -0.1784814
 ## 
 ## $brainsmash.pvalue
 ## [1] 0</code></pre>
