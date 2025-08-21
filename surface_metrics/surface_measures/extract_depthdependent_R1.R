@@ -46,7 +46,7 @@ superficialR1.glasser.7T <- superficialR1.glasser.7T.long %>% group_by(subses, r
 superficialR1.glasser.7T <- merge(superficialR1.glasser.7T, participants, by = "subses")
 
 ### middle depths 
-middleR1.glasser.7T <- do.call(rbind, myelin.glasser.7T[5:7]) #40-60% of cortical thickness
+middleR1.glasser.7T <- do.call(rbind, myelin.glasser.7T[5:6]) #40-50% of cortical thickness
 middleR1.glasser.7T$depth <- substr(row.names(middleR1.glasser.7T), 1, 9) 
 cols_to_pivot <- names(middleR1.glasser.7T)[grep("ROI", names(middleR1.glasser.7T))] 
 middleR1.glasser.7T.long <- middleR1.glasser.7T %>% pivot_longer(cols = all_of(cols_to_pivot), names_to = "region", values_to = "R1") #long formatted df for grouping
@@ -57,7 +57,7 @@ middleR1.glasser.7T <- middleR1.glasser.7T.long %>% group_by(subses, region) %>%
 middleR1.glasser.7T <- merge(middleR1.glasser.7T, participants, by = "subses")
 
 ### deep depths
-deepR1.glasser.7T <- do.call(rbind, myelin.glasser.7T[8:9]) #70-80% of cortical thickness
+deepR1.glasser.7T <- do.call(rbind, myelin.glasser.7T[7:9]) #60-80% of cortical thickness
 deepR1.glasser.7T$depth <- substr(row.names(deepR1.glasser.7T), 1, 9) 
 cols_to_pivot <- names(deepR1.glasser.7T)[grep("ROI", names(deepR1.glasser.7T))] 
 deepR1.glasser.7T.long <- deepR1.glasser.7T %>% pivot_longer(cols = all_of(cols_to_pivot), names_to = "region", values_to = "R1") #long formatted df for grouping
@@ -89,7 +89,7 @@ superficialR1.electrodes.7T <- superficialR1.electrodes.7T.long %>% group_by(sub
 superficialR1.electrodes.7T <- merge(superficialR1.electrodes.7T, participants, by = "subses")
 
 ### middle depths
-middleR1.electrodes.7T <- do.call(rbind, myelin.electrodes.7T[5:7]) 
+middleR1.electrodes.7T <- do.call(rbind, myelin.electrodes.7T[5:6]) 
 middleR1.electrodes.7T$depth <- substr(row.names(middleR1.electrodes.7T), 1, 9) #assign depth
 cols_to_pivot <- names(middleR1.electrodes.7T)[16:69] #atlas region cols
 middleR1.electrodes.7T.long <- middleR1.electrodes.7T %>% pivot_longer(cols = all_of(cols_to_pivot), names_to = "region", values_to = "R1") #long formatted df for grouping
@@ -100,7 +100,7 @@ middleR1.electrodes.7T <- middleR1.electrodes.7T.long %>% group_by(subses, regio
 middleR1.electrodes.7T <- merge(middleR1.electrodes.7T, participants, by = "subses")
 
 ### deep depths
-deepR1.electrodes.7T <- do.call(rbind, myelin.electrodes.7T[8:9]) 
+deepR1.electrodes.7T <- do.call(rbind, myelin.electrodes.7T[7:9]) 
 deepR1.electrodes.7T$depth <- substr(row.names(deepR1.electrodes.7T), 1, 9) #assign depth
 cols_to_pivot <- names(deepR1.electrodes.7T)[16:69] #atlas region cols
 deepR1.electrodes.7T.long <- deepR1.electrodes.7T %>% pivot_longer(cols = all_of(cols_to_pivot), names_to = "region", values_to = "R1") #long formatted df for grouping
