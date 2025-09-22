@@ -1,4 +1,4 @@
-#A script to generate hemisphere-specific surrogate maps that preserve the spatial autocorrelation present in the R1 data. These surrogates will be reflected across hemispheres to generate whole-brain null maps for testing the significance of R1 - myelin map correlations
+#A script to generate hemisphere-specific surrogate maps that preserve spatial autocorrelation
 
 from brainsmash.mapgen.base import Base
 import numpy as np
