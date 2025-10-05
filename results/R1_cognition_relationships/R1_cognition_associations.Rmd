@@ -216,6 +216,8 @@ ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Fig
 
 ## Developmental Improvements in Task Performance
 
+### Group level
+
 **Learning Rate - stage 1**
 
 ```{r}
@@ -297,6 +299,41 @@ ggplot() +
         axis.ticks = element_line(linewidth = .2))
 
 ggsave(filename = "/Volumes/Hera/Projects/corticalmyelin_development/Figures/Figure7/Responsetime_agesmooths.pdf", device = "pdf", dpi = 500, width = 2.1, height = 1.9)
+```
+
+### Individual level
+
+```{r}
+participants.daw <- participants.daw %>% arrange(subject_id, mp2rage.session_number) %>% group_by(subject_id) %>% 
+  mutate(a1_delta = a1 - lag(a1)) %>%
+  mutate(a2_delta = a2 - lag(a2)) %>%
+  mutate(meanrts1_delta = meanrts1 - lag(meanrts1)) %>%
+  mutate(meanrts2_delta = meanrts2 - lag(meanrts2)) %>% 
+  ungroup()
+```
+
+**Learning Rate - stage 1**
+
+```{r}
+t.test(participants.daw$a1_delta)
+```
+
+**Learning Rate - stage 2**
+
+```{r}
+t.test(participants.daw$a2_delta)
+```
+
+**Response Time - stage 1**
+
+```{r}
+t.test(participants.daw$meanrts1_delta)
+```
+
+**Response Time - stage 2**
+
+```{r}
+t.test(participants.daw$meanrts2_delta)
 ```
 
 # Greater Dorsolateral Prefrontal Myelin Content is Linked to Enhanced Learning Rate During Changing Environmental Contigencies

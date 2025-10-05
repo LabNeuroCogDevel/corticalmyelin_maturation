@@ -50,8 +50,8 @@ bigbrain <- data.frame(cytoarchitecture.gradient = bigbrain.cifti$data, orig_par
 Myelin development data for correlation significance testing
 
 ```{r}
-regional.rate <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/R1_depth_development/regional_averagederivative_frontallobe.csv")
-regional.maturationage <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/R1_depth_development/regional_maturationage_frontallobe.csv")
+regional.rate <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/R1_compartment_development/regional_averagederivative_frontallobe.csv")
+regional.maturationage <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/R1_compartment_development/regional_maturationage_frontallobe.csv")
 ```
 
 # S-A Axis BrainSmash
@@ -113,14 +113,9 @@ brainsmash.results <- function(dev.df, dev.metric, this.depth){
   
   null.cors <- cor(surrogate_maps.empirical[dev.metric], surrogate_maps.null, method = c("spearman"), use = "complete.obs") #correlation with brainsmash based surrogates 
   
-  mean.nullcor <- mean(null.cors)
-  if(empirical.cor > 0){
-    brainsmash.p <- sum(null.cors > empirical.cor[1])/1000
-  }
-  if(empirical.cor < 0){
-    brainsmash.p <- sum(null.cors < empirical.cor[1])/1000
-  }
-  
+  mean.nullcor <- mean(abs(null.cors))
+  brainsmash.p <- sum(abs(null.cors) > abs(empirical.cor[1]))/1000
+
   smash.results <- list(empirical.cor[1], mean.nullcor, brainsmash.p)
   names(smash.results) <- list("empirical.cor", "average.null.cor", "brainsmash.pvalue")
   return(smash.results)
@@ -130,11 +125,11 @@ brainsmash.results <- function(dev.df, dev.metric, this.depth){
 *R1 Rate of Increase - S-A Axis Correlation by Depth*
 
 ```{r}
-brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "depth_1")
+brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "superficial")
 ```
 
 ```{r}
-brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "depth_7")
+brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "deep")
 ```
 
 # BigBrain BrainSmash
@@ -196,13 +191,8 @@ brainsmash.results <- function(dev.df, dev.metric, this.depth){
   
   null.cors <- cor(surrogate_maps.empirical[dev.metric], surrogate_maps.null, method = c("spearman"), use = "complete.obs") #correlation with brainsmash based surrogates 
   
-  mean.nullcor <- mean(null.cors)
-  if(empirical.cor > 0){
-    brainsmash.p <- sum(null.cors > empirical.cor[1])/1000
-  }
-  if(empirical.cor < 0){
-    brainsmash.p <- sum(null.cors < empirical.cor[1])/1000
-  }
+  mean.nullcor <- mean(abs(null.cors))
+  brainsmash.p <- sum(null.cors > abs(empirical.cor[1]))/1000
   
   smash.results <- list(empirical.cor[1], mean.nullcor, brainsmash.p)
   names(smash.results) <- list("empirical.cor", "average.null.cor", "brainsmash.pvalue")
@@ -213,10 +203,10 @@ brainsmash.results <- function(dev.df, dev.metric, this.depth){
 *R1 Rate of Increase - BigBrain Cytoarchitectural Variation Correlation by Depth*
 
 ```{r}
-brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "depth_1")
+brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "superficial")
 ```
 
 ```{r}
-brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "depth_7")
+brainsmash.results(dev.df = regional.rate, dev.metric = "rate", this.depth = "deep")
 ```
 

@@ -45,8 +45,8 @@ glasser.snr.exclude <- read.csv("/Volumes/Hera/Projects/corticalmyelin_developme
 Depths
 
 ```{r}
-depth.list <- c("depth_1", "depth_2", "depth_3", "depth_4", "depth_5", "depth_6", "depth_7")
-ordered_depths <- c("depth_7", "depth_6", "depth_5", "depth_4", "depth_3", "depth_2", "depth_1")
+depth.list <- c("superficial", "middle", "deep")
+ordered_depths <- c("deep", "middle", "superficial")
 ```
 
 GAM outputs: sex effects and age by sex interactions
@@ -70,12 +70,12 @@ for(i in 1:length(files)){
 ```
 
 ```{r}
-gam.sexeffects.alldepths <- list(depth1_sex_maineffects, depth2_sex_maineffects, depth3_sex_maineffects, depth4_sex_maineffects, depth5_sex_maineffects, depth6_sex_maineffects, depth7_sex_maineffects)
+gam.sexeffects.alldepths <- list(superficial_sex_maineffects, middle_sex_maineffects, deep_sex_maineffects)
 names(gam.sexeffects.alldepths) <- depth.list
 ```
 
 ```{r}
-gam.sexinteractions.alldepths <- list(depth1_sex_ageinteraction, depth2_sex_ageinteraction, depth3_sex_ageinteraction, depth4_sex_ageinteraction, depth5_sex_ageinteraction, depth6_sex_ageinteraction, depth7_sex_ageinteraction)
+gam.sexinteractions.alldepths <- list(superficial_sex_ageinteraction, middle_sex_ageinteraction, deep_sex_ageinteraction)
 names(gam.sexinteractions.alldepths) <- depth.list
 ```
 
@@ -107,8 +107,6 @@ lapply(gam.sexeffects.alldepths, function(depth){
 ```
 
 ## Significance of Age by Sex Interactions
-
-
 
 ```{r}
 #Function to calculate the number of significant age by sex interactions post-FDR

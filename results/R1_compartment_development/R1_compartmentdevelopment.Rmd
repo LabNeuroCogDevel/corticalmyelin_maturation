@@ -1,0 +1,1271 @@
+---
+title: "Heterochronous and Hierarchical Laminar Myelination in the Human PFC"
+author: "Valerie Jill Sydnor"
+output: 
+  rmdformats::material:
+    highlight: monochrome
+    lightbox: true
+    gallery: true
+    css: /Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/custom_css/myelindev.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyr)
+library(plyr)
+library(ggplot2)
+library(ggseg)
+library(ggsegGlasser)
+library(purrr)
+library(matrixStats)
+library(scales)
+library(cifti)
+library(ggpubr)
+library(paletteer)
+library(dplyr)
+library(ggnewscale)
+library(EnvStats)
+library(ggcorrplot)
+extrafont::loadfonts()
+source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/gam_models/gam_functions.R")
+```
+
+# Read in data
+
+Glasser regions and assignments
+
+```{r}
+#Glasser region and label names for the frontal lobe
+glasser.regions <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist.csv")
+glasser.frontal <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist_frontallobe.csv")
+glasser.snr.exclude <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/SNR/glasser_SNR_exclusion.csv")
+```
+
+```{r}
+glasser.plotting <- glasser.regions
+glasser.plotting$cortex <- "cortex"
+glasser.plotting$cortex[glasser.plotting$orig_parcelname %in% glasser.snr.exclude$orig_parcelname] <- "exclude"
+glasser.plotting <- glasser.plotting %>% select(label, cortex)
+glasser.plotting <- rbind(glasser.plotting, data.frame(label = "rh_???", cortex = "exclude"))
+glasser.plotting <- rbind(glasser.plotting, data.frame(label = "lh_???", cortex = "exclude"))
+glasser.plotting <- glasser.plotting %>% filter(label != "lh_L_10pp")
+```
+
+Depths
+
+```{r}
+depth.list <- c("superficial", "middle", "deep")
+ordered_depths <- c("deep", "middle", "superficial")
+depth_colorbar <-  c("#004A38FF", "#6992CC", "#A29DC4")
+depth_colorbar_reverse <-  c("#A29DC4", "#6992CC", "#004A38FF")
+```
+
+S-A Axis
+
+```{r, warning=F}
+#S-A axis or saxis as nicknamed by Dan Margulies on a trip to gingerworld
+S.A.axis.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/S-A_ArchetypalAxis/FSLRVertex/SensorimotorAssociation_Axis_parcellated/SensorimotorAssociation.Axis.Glasser360.pscalar.nii") #S-A_ArchetypalAxis repo
+S.A.axis <- data.frame(SA.axis = rank(S.A.axis.cifti$data), orig_parcelname = names(S.A.axis.cifti$Parcel))
+S.A.axis <- merge(S.A.axis, glasser.regions, by = "orig_parcelname")
+```
+
+BigBrain Histology Gradient
+
+```{r, warning=F}
+#BigBrain histology-based cytoarchitecture differentiation gradient from Paquola et al., 2021, eLife
+bigbrain.cytoarchitecture.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_histologygradient/BigBrain.Histology.pscalar.nii")
+bigbrain <- data.frame(cytoarchitecture.gradient = bigbrain.cytoarchitecture.cifti$data, orig_parcelname = names(bigbrain.cytoarchitecture.cifti$Parcel))
+bigbrain <- merge(bigbrain, glasser.regions, by = "orig_parcelname")
+```
+
+Neurosynth Term Scores
+
+```{r}
+neurosynth.terms <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/Neurosynth_terms/atl-glasser360_neurosynth.csv") %>% dplyr::select(-regionName) %>% dplyr::select(-timing) #neurosynth term meta-analytic scores for 123 terms present in both NeuroSynth and the Cognitive Atlas, ordered in lh --> rh glasser order
+neurosynth.termlist <- names(neurosynth.terms) #list of term names
+neurosynth.terms$label[1:180] <- glasser.regions$label[181:360] #lh first
+neurosynth.terms$label[181:360] <- glasser.regions$label[1:180] #rh
+neurosynth.terms[,1:123] <- scale(neurosynth.terms[,1:123])
+```
+
+Final participant list
+
+```{r}
+participants <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_MP2RAGE_finalsample_demographics.csv")
+participants <- participants %>% mutate(subses = sprintf("%s_%s", subject_id, session_id))
+```
+
+Superficial, middle, deep R1 in HCP-MMP regions
+
+```{r}
+#R1 by region matrices at 7 cortical depths
+myelin.compartments.7T <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/compartmentsR1_glasseratlas_finalsample.RDS") 
+```
+
+GAM outputs: developmental effects
+
+```{r}
+setwd("/Volumes/Hera/Projects/corticalmyelin_development/gam_outputs/developmental_effects/") #output from /gam_models/fitgams_glasserregions_bydepth.R
+
+files <- list.files(getwd(), pattern = "age.RDS") 
+
+#read in files and assign to variables
+for(i in 1:length(files)){
+  
+  Rfilename <- gsub(".RDS", "", files[i])
+  
+  x <- readRDS(files[i]) 
+  assign(Rfilename, x) 
+  }
+```
+
+```{r}
+#Combine all outputs stats. A list of lists! #inception #spinning top
+#superficial-middle-deep, each depth contains 4 dfs (stats, fitted, smooths, derivatives)
+gam.results.alldepths <- list(superficial_gamstatistics_age, middle_gamstatistics_age, deep_gamstatistics_age)
+names(gam.results.alldepths) <- list("superficial", "middle", "deep")
+```
+
+```{r}
+#Extract the 4 types of results and format
+gam.statistics.alldepths <- lapply(gam.results.alldepths, '[[', "gam.statistics.df" )
+gam.statistics.allregions <- gam.statistics.alldepths #whole brain data
+gam.fittedvalues.alldepths <-  lapply(gam.results.alldepths, '[[', "gam.fittedvalues.df" )
+gam.smoothestimates.alldepths <- lapply(gam.results.alldepths, '[[', "gam.smoothestimates.df" )
+gam.smoothestimates.allregions <- lapply(gam.results.alldepths, '[[', "gam.smoothestimates.df" ) #wholebrain data
+gam.derivatives.alldepths <- lapply(gam.results.alldepths, '[[', "gam.derivatives.df" )
+
+format_depth_dfs <- function(depth){
+  depth <- depth[depth$orig_parcelname %in% glasser.frontal$orig_parcelname,] #get results for frontal lobe only
+  depth <-  depth[!(depth$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+}
+
+gam.statistics.alldepths <- lapply(gam.statistics.alldepths, function(depth){
+  format_depth_dfs(depth)
+})
+gam.fittedvalues.alldepths <- lapply(gam.fittedvalues.alldepths, function(depth){
+  format_depth_dfs(depth)
+})
+gam.smoothestimates.alldepths <- lapply(gam.smoothestimates.alldepths, function(depth){
+  format_depth_dfs(depth)
+})
+gam.derivatives.alldepths <- lapply(gam.derivatives.alldepths, function(depth){
+  format_depth_dfs(depth)
+})
+
+format_region_dfs <- function(depth){
+  depth <-  depth[!(depth$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
+}
+
+gam.statistics.allregions <- lapply(gam.statistics.allregions, function(depth){
+  format_region_dfs(depth)
+})
+
+gam.smoothestimates.allregions <- lapply(gam.smoothestimates.allregions, function(depth){
+  format_region_dfs(depth)
+})
+```
+
+# Longitudinal Development of Frontal Cortex Myelin in Superficial, Middle, and Deep Cortex
+
+## Frontal lobe developmental trajectories
+
+```{r, warning = F}
+#Long formatted R1 data for all scans + frontal lobe regions at each depth
+myelin.compartments.7T.long <- lapply(myelin.compartments.7T, function(depth){
+  cols_to_pivot <- names(depth)[grepl("ROI", names(depth))]
+  depth.long <- depth %>% pivot_longer(cols = cols_to_pivot, names_to = "orig_parcelname", values_to = "R1")
+  depth.long <- merge(depth.long, glasser.frontal, by = "orig_parcelname")
+  depth.long <- depth.long[!(depth.long$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),]
+  depth.long <- depth.long %>% mutate(subses = sprintf("%s_%s", subject_id, session_id))
+  return(depth.long)
+})
+```
+
+```{r}
+#Calculate average frontal lobe R1 for each sub/ses
+myelin.frontallobe.7T <- lapply(myelin.compartments.7T.long, function(depth){
+    depth <- depth %>% group_by(subses) %>% do(mean.R1 = mean(.$R1)) %>% unnest(cols = c( "mean.R1"))
+    depth <- merge(depth, participants, by = "subses")
+    depth$subject_id <- as.factor(depth$subject_id)
+    depth$sex <- as.factor(depth$sex)
+    return(depth)
+})
+```
+
+```{r}
+#Function to fit a frontal lobe gam for a given depth (superficial, middle, deep) and return model summary
+gam.summary <- function(depth){
+  
+  depth.data <- depth
+  
+  model <- gam(mean.R1 ~ s(age, k = 4, fx = F) + s(subject_id, bs = "re"), method = c("REML"), data = depth.data)
+  
+  print(summary(model))
+}
+```
+
+```{r}
+#Function to fit a frontal lobe gam for a given depth and plot the developmental trajectory
+plot.trajectory <- function(depth, display_color, y_lims, y_ticks){
+  
+  depth.data <- depth
+  
+  #First fit the gam and get fitted values and derivatives 
+  depth.model <- gam.statistics.smooths(input.df = depth.data, region = "mean.R1", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = T, random_slopes = F, knots = 4, set_fx = F)
+
+  #Age spline plot with participant-level data
+  trajectory.plot <- ggplot() +
+    geom_point(data = depth.data, aes(x = age, y = mean.R1, group = subject_id), color = "black", size = .4) +
+    geom_line(data = depth.data, aes(x = age, y = mean.R1, group = subject_id), linewidth = 0.3, color = "gray75") +
+    geom_line(data = depth.model$gam.fittedvalues, aes(x = age, y = fitted), color = display_color, linewidth = 1.5) +
+    labs(x="\nAge", y=sprintf("R1\n")) +
+    theme_classic() +
+    scale_y_continuous(limits = y_lims, breaks = y_ticks) + 
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+  
+  return(trajectory.plot)
+}
+```
+
+```{r}
+#Function to fit a frontal lobe gam for a given depth and return the fitted values df
+depth.fittedvalues <- function(depth){
+  
+  depth.data <- depth
+  
+  #First fit the gam and get fitted values
+  depth.model <- gam.statistics.smooths(input.df = depth.data, region = "mean.R1", smooth_var = "age", id_var = "subject_id", covariates = "NA", random_intercepts = T, random_slopes = F, knots = 4, set_fx = F)
+  
+  depth.fitted <- depth.model$gam.fittedvalues
+  return(depth.fitted)
+}
+```
+
+### Depth-speficic plots 
+
+**Superficial**
+
+```{r}
+gam.summary(myelin.frontallobe.7T$superficial)
+```
+
+```{r, warning = F}
+plot.trajectory(depth = myelin.frontallobe.7T$superficial, display_color = depth_colorbar[3], y_lims = c(0.485, 0.56), y_ticks  = c(0.49, 0.52, 0.55))
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/Superficial_trajectoryplot.pdf", device = "pdf", dpi = 500, width = 2.5, height = 1.9)
+```
+
+**Middle**
+
+```{r}
+gam.summary(myelin.frontallobe.7T$middle)
+```
+
+```{r, warning = F}
+plot.trajectory(depth = myelin.frontallobe.7T$middle, display_color = depth_colorbar[2], y_lims = c(0.51, 0.585), y_ticks = c(0.52, 0.55, 0.58))
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/Middle_trajectoryplot.pdf", device = "pdf", dpi = 500, width = 2.5, height = 1.9)
+```
+
+**Deep**
+
+```{r}
+gam.summary(myelin.frontallobe.7T$deep)
+```
+
+```{r, warning = F}
+plot.trajectory(depth = myelin.frontallobe.7T$deep, display_color = depth_colorbar[1], y_lims = c(0.55, 0.625), y_ticks = c(0.56, 0.59, 0.62))
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/Deep_trajectoryplot.pdf", device = "pdf", dpi = 500, width = 2.5, height = 1.9)
+```
+
+```{r}
+ps <- c(2e-16, 2e-16, 2e-16)
+p.adjust(ps, method = c("fdr"))
+```
+
+### Multi-depth plots
+
+```{r}
+frontal.fittedvalues.alldepths <- lapply(myelin.frontallobe.7T, function(depth){
+  depth.fittedvalues(depth)
+})
+```
+
+```{r, warning = F, message = F}
+ggplot() +
+#superficial
+geom_point(data = myelin.frontallobe.7T$superficial, aes(x = age, y = mean.R1, group = subject_id), color = "black", size = .5) +
+geom_line(data = myelin.frontallobe.7T$superficial, aes(x = age, y = mean.R1, group = subject_id), linewidth = 0.3, color = "gray75") +
+geom_line(data = frontal.fittedvalues.alldepths$superficial, aes(x = age, y = fitted), color = depth_colorbar[3], linewidth = 1.8) +
+#deep
+geom_point(data = myelin.frontallobe.7T$deep, aes(x = age, y = mean.R1, group = subject_id), color = "black", size = .5) +
+geom_line(data = myelin.frontallobe.7T$deep, aes(x = age, y = mean.R1, group = subject_id), linewidth = 0.3, color = "gray75") +
+geom_line(data = frontal.fittedvalues.alldepths$deep, aes(x = age, y = fitted), color = depth_colorbar[1], linewidth = 1.8) +
+labs(x="\nAge", y=sprintf("R1\n")) +
+theme_classic() +
+scale_y_continuous(limits = c(0.49, 0.625)) +
+theme(
+  legend.position = "none", 
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementarya/Depth_trajectories_withdata.pdf", device = "pdf", dpi = 500, width = 2.7, height = 4.65)
+```
+
+```{r}
+ggplot() +
+geom_line(data = frontal.fittedvalues.alldepths$superficial, aes(x = age, y = fitted), color = depth_colorbar[3], linewidth = 1.8) +
+geom_line(data = frontal.fittedvalues.alldepths$middle, aes(x = age, y = fitted), color = depth_colorbar[2], linewidth = 1.8) +
+geom_line(data = frontal.fittedvalues.alldepths$deep, aes(x = age, y = fitted), color = depth_colorbar[1], linewidth = 1.8) +
+labs(x="\nAge", y=sprintf("R1\n")) +
+theme_classic() +
+scale_y_continuous(limits = c(0.5, 0.61), breaks = c(0.5, 0.52, 0.54, 0.56, 0.58, 0.6)) +
+theme(
+  legend.position = "none", 
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementarya/Depth_trajectories_allfits.pdf", device = "pdf", dpi = 500, width = 2.7, height = 4.65)
+```
+
+### Age-by-depth interaction
+
+```{r}
+myelin.frontallobe.alldepths <- do.call(rbind, myelin.frontallobe.7T)
+myelin.frontallobe.alldepths <- myelin.frontallobe.alldepths %>% mutate(depth.factor = as.factor(str_remove(row.names(myelin.frontallobe.alldepths), "\\..*")))
+myelin.frontallobe.alldepths$depth <- as.numeric(myelin.frontallobe.alldepths$depth.factor) 
+
+summary(gam(mean.R1 ~ s(age, k = 3, fx = F) + s(depth, k = 3, fx = F) + te(age, depth, k = c(3, 3)) + s(subject_id, by = depth.factor, bs = "re"), method = "REML", data = myelin.frontallobe.alldepths))
+```
+
+## Robust longitudinal increases in frontal lobe R1 
+
+```{r}
+#Compute longitudinal change in frontal lobe R1 between paired longitudinal sessions, at each cortical depth
+compute_R1_longitudinalchange <- function(input.df){
+  
+  input.df$mp2rage.date <- ymd(input.df$mp2rage.date)
+  
+  #session-to-session raw longitudinal change in R1
+  R1.longitudinal.change <- input.df %>% group_by(subject_id) %>%
+    mutate(R1.change.raw = mean.R1 - lag(mean.R1)) %>% 
+    ungroup() %>% select(subject_id, session_id, age, mp2rage.session_number, mean.R1, R1.change.raw)
+  
+  #session-to-session longitudinal change in age
+  R1.longitudinal.change <- R1.longitudinal.change %>% group_by(subject_id) %>%
+    mutate(age.change = age - lag(age)) %>% 
+    ungroup() %>% select(subject_id, session_id, age, mp2rage.session_number, mean.R1, R1.change.raw, age.change)
+  
+  #midpoint between-session age
+  R1.longitudinal.change <- R1.longitudinal.change %>% group_by(subject_id) %>%
+    mutate(mean.age = (age + lag(age))/2) %>% 
+    ungroup() %>% select(subject_id, session_id, age, mp2rage.session_number, mean.R1, R1.change.raw, age.change, mean.age)
+  
+  #longitudinal change in R1 scaled by change in age (delta R1/ delta age = R1 change slope!)
+  R1.longitudinal.change <- R1.longitudinal.change %>% mutate(R1.change.slope = R1.change.raw/age.change)
+  
+  #remove subjects with a single timepoint only
+  R1.longitudinal.change <- R1.longitudinal.change %>% group_by(subject_id) %>% filter(n() > 1) %>% ungroup() 
+}
+
+myelin.frontallobe.longchange <- lapply(myelin.frontallobe.7T, function(depth){
+  compute_R1_longitudinalchange(input.df = depth)
+})
+```
+
+```{r}
+# >80% of longitudinal visits show an increase in frontal cortex R1 in superficial, middle, and deep cortex
+lapply(myelin.frontallobe.longchange, function(depth){
+  R1.longincrease.percent <- round((sum(depth$R1.change.raw > 0, na.rm = T) / sum(!(is.na(depth$R1.change.raw))))*100, 2)
+  sprintf("%s percent of longitudinal visits show an increase in R1", R1.longincrease.percent)
+})
+```
+
+**Within-individual longitudinal slopes at exemplar depths**
+
+```{r}
+#Plot within-person R1 + slope at younger and older scans 
+myelin.frontallobe.longchange.alldepths <- do.call(rbind, myelin.frontallobe.longchange) #long df with all depths
+myelin.frontallobe.longchange.alldepths <- myelin.frontallobe.longchange.alldepths %>% mutate(depth = factor(str_remove(row.names(myelin.frontallobe.longchange.alldepths), "\\..*"), ordered = T, levels = ordered_depths))
+
+scans.t1t2 <- myelin.frontallobe.longchange.alldepths %>% filter(mp2rage.session_number < 3) #first get paired visits 1 and 2
+scans.t1t2$mp2rage.session_number[scans.t1t2$mp2rage.session_number == 1] <- "Younger" 
+scans.t1t2$mp2rage.session_number[scans.t1t2$mp2rage.session_number == 2] <- "Older"
+scans.t1t2$mp2rage.session_number <- factor(scans.t1t2$mp2rage.session_number, levels = c("Younger", "Older"))
+
+scans.t2t3 <- myelin.frontallobe.longchange.alldepths %>% filter(mp2rage.session_number > 1) #next get paired visits 2 and 3
+scans.t2t3 <- scans.t2t3 %>% group_by(subject_id, depth) %>% filter(n() > 1) %>%  ungroup() # make sure we only plot paired data
+scans.t2t3$mp2rage.session_number[scans.t2t3$mp2rage.session_number == 2] <- "Younger"
+scans.t2t3$mp2rage.session_number[scans.t2t3$mp2rage.session_number == 3] <- "Older"
+scans.t2t3$mp2rage.session_number <- factor(scans.t2t3$mp2rage.session_number, levels = c("Younger", "Older"))
+
+
+ggplot() +
+  geom_point(data = scans.t1t2, aes(x = mp2rage.session_number, y = mean.R1, color = depth)) +
+  geom_line(data = scans.t1t2, aes(x = mp2rage.session_number, y = mean.R1, group = interaction(subject_id, depth), color = depth), linewidth = 0.25) + 
+  geom_point(data = scans.t2t3, aes(x = mp2rage.session_number, y = mean.R1, color = depth)) +
+  geom_line(data = scans.t2t3, aes(x = mp2rage.session_number, y = mean.R1, group = interaction(subject_id, depth), color = depth), linewidth = 0.25) + 
+  theme_classic() +
+  scale_x_discrete(expand = c(0.03, 0.03)) +
+  scale_color_manual(values = c(alpha(depth_colorbar[1], 0.7), alpha(depth_colorbar[2], 0.7), alpha(depth_colorbar[3], 0.7))) +
+  xlab("\n") +
+  ylab("Frontal Cortex R1\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementaryb/Longitudinal_slopes.pdf", device = "pdf", dpi = 500, width = 2.65, height = 3.2)
+```
+
+**R1 slopes (rate of change) at each cortical depths**
+
+*All data: violin plots*
+
+```{r, warning = F, message = F}
+myelin.frontallobe.longchange.alldepths %>% 
+  ggplot(aes(x = R1.change.slope, y = depth, fill = depth)) +
+  geom_violin(aes(fill = depth), color = "white", adjust = 1.25) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_classic() +
+  scale_fill_manual(values = depth_colorbar) +
+  xlab("\nR1 Rate of Change (slope)") +
+  ylab("Cortical Compartment\n") +
+  scale_x_continuous(limits = c(-0.008, 0.022)) +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementaryb/R1slope_depthplot_violin.pdf", device = "pdf", dpi = 500, width = 2.6, height = 3.2)
+```
+
+*Depth means* 
+
+```{r}
+R1age.slope.longitudinal <- lapply(myelin.frontallobe.longchange, function(depth){
+  R1.age.slope <- mean(depth$R1.change.slope, na.rm = T)
+  return(R1.age.slope)
+})
+
+R1age.slope.longitudinal <- do.call(rbind, R1age.slope.longitudinal) %>% as.data.frame() %>% set_names("R1.change.slope")
+R1age.slope.longitudinal$depth <- factor(row.names(R1age.slope.longitudinal), ordered = T, levels = ordered_depths)
+
+R1age.slope.longitudinal %>% 
+  ggplot(aes(x = R1.change.slope, y = depth, fill = depth)) +
+  geom_point(shape = 23, size = 5, color = "white") +
+  theme_classic() +
+  scale_fill_manual(values = depth_colorbar) +
+  scale_x_continuous(limits = c(0.004, 0.0056)) +
+  xlab("\nR1 Rate of Change (slope)") +
+  ylab("Cortical Compartment\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementaryb/R1slope_depthplot_meanpoint.pdf", device = "pdf", dpi = 500, width = 2.15, height = 1.7)
+```
+
+**Differences in within-individual rate of change by depth and age**
+
+```{r}
+myelin.frontallobe.longchange.alldepths <- myelin.frontallobe.longchange.alldepths %>% filter(!is.na(R1.change.slope)) #75 longitudinal visits for superficial, middle, deep
+myelin.frontallobe.longchange.alldepths$depth <- as.numeric(myelin.frontallobe.longchange.alldepths$depth)
+myelin.frontallobe.longchange.alldepths <- as.data.frame(myelin.frontallobe.longchange.alldepths)
+
+summary(gam(R1.change.slope ~ s(mean.age, k = 4, fx = F) + s(depth, bs = "re"), method = c("REML"), data = myelin.frontallobe.longchange.alldepths))
+```
+
+```{r}
+R1rate.by.age.model <- gam.statistics.smooths(input.df = myelin.frontallobe.longchange.alldepths, region = "R1.change.slope", smooth_var = "mean.age", id_var = "depth", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)
+```
+
+```{r, warning = F, message = F}
+ggplot(R1rate.by.age.model$gam.fittedvalues, aes(x = mean.age, y = fitted)) +
+  geom_line(color = "black", linewidth = 1) + 
+  theme_classic() +
+  scale_y_continuous(limits = c(0.0039, 0.0064), breaks = c(0.004, 0.005, 0.006)) +
+  xlab("Mean Age") + 
+  ylab("R1 Rate of Change (predicted)\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+  
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementaryb/R1slope_byage_trajectory.pdf", device = "pdf", dpi = 500, width = 2.07, height = 1.57)
+```
+
+**Drivers of negative versus positive within-individual rate of change**
+
+*Structural data quality (Euler number)*
+
+```{r, message = F}
+fs.qc <- arrow::read_parquet("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/7T_BrainMechanisms_brainmeasures.parquet") %>% select(subject_id, session_id, lh_euler, rh_euler) #Euler numbers from fstabulate
+fs.qc$session_id <- gsub('.{15}$', '', fs.qc$session_id) 
+fs.qc$euler_number <- fs.qc %>% select(lh_euler, rh_euler) %>% rowMeans() 
+fs.qc <- left_join(participants, fs.qc)
+
+myelin.frontallobe.longchange.alldepths <- merge(myelin.frontallobe.longchange.alldepths, fs.qc)
+
+change.positive <- myelin.frontallobe.longchange.alldepths %>% filter(R1.change.slope > 0)
+change.negative <- myelin.frontallobe.longchange.alldepths %>% filter(R1.change.slope < 0)
+t.test(change.positive$euler_number, change.negative$euler_number)
+```
+
+*Age*
+
+```{r}
+t.test(change.positive$mean.age, change.negative$mean.age)
+```
+
+*Delta age*
+
+```{r}
+t.test(change.positive$age.change, change.negative$age.change)
+```
+*Sex*
+
+```{r}
+table(change.positive$sex) #53% female
+table(change.negative$sex) #76% female
+
+sex_data <- table(
+  group = c(rep("Group1", nrow(change.positive)), rep("Group2", nrow(change.negative))),
+  sex   = c(change.positive$sex, change.negative$sex)
+)
+chisq.test(sex_data)
+```
+# Myelin Develops Heterochronously Across Superficial, Middle, and Deep Cortex
+
+## Number of significant regional effects at each depth
+
+```{r}
+#Function to calculate the number of significant age effects post-FDR
+ageeffect.results <- function(depth){
+  ageeffects <- depth
+  n_roi <- nrow(ageeffects)
+ 
+  #significant smooth terms
+  aageeffects <- ageeffects %>% mutate(significant = p.adjust(ageeffects$GAM.smooth.pvalue, method = c("fdr")) < 0.05)
+  sig_age <- aageeffects %>% filter(significant == TRUE) %>% nrow()
+  sig_age_percent <- round((sig_age/n_roi)*100, 2)
+                         
+  sprintf("%s percent of regions show a positive significant developmental change in R1", sig_age_percent)
+}
+```
+
+```{r}
+lapply(gam.statistics.alldepths, function(depth){
+  ageeffect.results(depth)
+})
+```
+
+## Regional derivatives at each depth
+
+```{r}
+gam.derivatives.alldepths.long <- do.call(rbind, gam.derivatives.alldepths)
+gam.derivatives.alldepths.long <- gam.derivatives.alldepths.long %>% mutate(depth = factor(str_remove(row.names(gam.derivatives.alldepths.long), "\\..*")))
+
+gam.derivatives.alldepths.long <- merge(gam.derivatives.alldepths.long, glasser.regions, sort = F)
+
+#Calculate the average first derivative in each region at each depth
+regional.rate.alldepths <- gam.derivatives.alldepths.long %>% group_by(label, depth) %>% do(rate = mean(.$derivative)) %>% unnest(cols = "rate")
+
+#Calculate the average across-region first derivative at each depth
+frontallobe.rate.alldepths <- regional.rate.alldepths %>% group_by(depth) %>% do(mean.rate = mean(.$rate)) %>% unnest(cols = "mean.rate")
+frontallobe.rate.alldepths$depth <- factor(frontallobe.rate.alldepths$depth, ordered = T, levels = ordered_depths)
+```
+
+### Depth-wise derivative plot
+
+```{r}
+frontallobe.rate.alldepths %>% 
+  ggplot(aes(x = mean.rate, y = depth, fill = depth)) +
+  geom_point(shape = 23, size = 6.5, color = "white") +
+  theme_classic() +
+  scale_fill_manual(values = depth_colorbar) +
+  xlab("\nRate of Increase") +
+  ylab("Cortical Compartment\n") +
+  scale_x_continuous(breaks = c(0.0010, 0.0014, 0.0018), limits = c(0.00099, 0.0019)) +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/Depthplot_derivative.pdf", device = "pdf", dpi = 500, width = 2.05, height = 2)
+```
+
+### Depth-wise derivative brain plots
+
+```{r, message = F}
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  
+  regional.rate.depth <- regional.rate.alldepths %>% filter(depth == this.depth) %>% filter(label != "lh_L_10pp")
+  
+  derivative.plot <- ggplot() + 
+  geom_brain(data = regional.rate.depth, atlas = glasser, mapping = aes(fill = rate), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
+  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = -1, limits = c(0.0005, 0.0022), oob = squish, na.value = "white") +  
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray20", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+  
+  print(derivative.plot)
+  
+  ggsave(filename = sprintf("/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/%s_rate_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.95, height = 2)
+}
+```
+
+### Coefficient of variation
+
+```{r}
+rate.cov.bydepth <- data.frame(depth = factor(), cov = double())
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
+  cov <- cv(depth.data$rate)
+  cov <- data.frame(depth = this.depth, cov = cov)
+  rate.cov.bydepth <- rbind(rate.cov.bydepth, cov)
+}
+rate.cov.bydepth
+```
+
+## Regional age of maturation at each depth
+
+```{r}
+gam.statistics.alldepths.long <- do.call(rbind, gam.statistics.alldepths)
+gam.statistics.alldepths.long <- gam.statistics.alldepths.long %>% mutate(depth = factor(str_remove(row.names(gam.statistics.alldepths.long), "\\..*")))
+
+regional.maturation.alldepths <- gam.statistics.alldepths.long
+regional.maturation.alldepths <- merge(regional.maturation.alldepths, glasser.regions, sort = F)
+
+#Calculate the average across-region age of maturation at each depth
+frontallobe.maturation.alldepths <- regional.maturation.alldepths %>% group_by(depth) %>% do(mean.age = mean(.$smooth.increase.offset, na.rm = T)) %>% unnest(cols = "mean.age")
+frontallobe.maturation.alldepths$depth <- factor(frontallobe.maturation.alldepths$depth, ordered = T, levels = ordered_depths)
+```
+
+### Depth-wise age of maturation plot
+
+```{r}
+frontallobe.maturation.alldepths %>% 
+  ggplot(aes(x = mean.age, y = depth, fill = depth)) +
+  geom_point(shape = 23, size = 5.5, color = "white") +
+  theme_classic() +
+  scale_fill_manual(values = depth_colorbar) +
+  xlab("\nAge of Maturation") +
+  ylab("Cortical Depth\n") +
+  scale_x_continuous(limits = c(25.95, 30.5)) +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/Depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 2.05, height = 2)
+```
+
+### Depth-wise age of maturation brain plots
+
+```{r, message = F}
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  
+  regional.mat.depth <- regional.maturation.alldepths %>% filter(depth == this.depth) %>% filter(label != "lh_L_10pp")
+  
+  derivative.plot <- ggplot() + 
+  geom_brain(data = regional.mat.depth, atlas = glasser, mapping = aes(fill = smooth.increase.offset), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
+  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = 1, limits = c(26, 34), oob = squish, na.value = "white") +  
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+  
+  print(derivative.plot)
+  
+  ggsave(filename = sprintf("/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/%s_maturation_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.95, height = 2)
+}
+```
+
+### Coefficient of variation
+
+```{r}
+maturation.cov.bydepth <- data.frame(depth = factor(), cov = double())
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  depth.data <- regional.maturation.alldepths %>% filter(depth == this.depth)
+  cov <- cv(depth.data$smooth.increase.offset, na.rm = T)
+  cov <- data.frame(depth = this.depth, cov = cov)
+  maturation.cov.bydepth <- rbind(maturation.cov.bydepth, cov)
+}
+maturation.cov.bydepth
+```
+
+# Frontal Myelin Matures Hierarchically in Superficial Cortex
+
+```{r}
+map.colorbar <- c("#edf6ff", "#c2d4ed", "#809dc4", "#345c91", "#0e4669")
+```
+
+## Variation in myelin development is patterned along the S-A axis
+
+```{r, warning = F, message = F}
+SA.frontal <- S.A.axis %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) %>% filter(label != "lh_L_10pp")
+
+ggplot() + 
+  geom_brain(data = SA.frontal, atlas = glasser, mapping = aes(fill = SA.axis), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
+  scale_fill_gradientn(colors = map.colorbar, trans = 'reverse', limits = c(360, 60), oob = squish, na.value = "white") + 
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure4/SAaxis_corticalmap.pdf", device = "pdf", dpi = 500, width = 4.3, height = 2.2)
+```
+
+```{r}
+rate.SAaxis.bydepth <- data.frame(depth = factor(), SA.corr = double())
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
+  depth.data <- merge(depth.data, S.A.axis)
+  corr <- cor(depth.data$SA.axis, depth.data$rate, method = c("spearman"), use = "complete.obs")
+  corr <- data.frame(depth = this.depth, SA.corr = corr)
+  rate.SAaxis.bydepth <- rbind(rate.SAaxis.bydepth, corr)
+}
+rate.SAaxis.bydepth
+```
+
+```{r}
+rate.SAaxis.bydepth$depth <- factor(rate.SAaxis.bydepth$depth, ordered = T, levels = ordered_depths)
+ggplot(rate.SAaxis.bydepth, aes(x = SA.corr, y = depth,  fill = depth)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  xlab("\nDevelopmental correlation") +
+  ylab("Cortical compartment\n") +
+  scale_x_continuous(breaks = c(-0.5, -0.25, 0), limits = c(-0.52, 0)) +
+  scale_fill_manual(values = depth_colorbar) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure4/SAaxis_rate_depthcorrelation.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
+```
+
+```{r, message = F}
+regional.rate.alldepths %>% filter(depth == "superficial") %>% merge(., S.A.axis) %>% 
+  ggplot(., aes(x = SA.axis, y = rate)) + geom_point(size = .5) +
+  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[3], fill = "gray78") +
+  labs(x="\nSensorimotor-association axis", y=sprintf("Rate of increase (derivative)\n")) +
+  scale_y_continuous(breaks = c(0, 0.001, 0.002)) +
+  theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure4/SAaxis_rate_superficial.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
+```
+
+## Variation in myelin development aligns with cytoarchitectural variation
+
+```{r, message = F}
+bigbrain.frontal <- bigbrain %>% filter(.$orig_parcelname %in% glasser.frontal$orig_parcelname,) %>% filter(!(.$orig_parcelname %in% glasser.snr.exclude$orig_parcelname)) %>% filter(label != "lh_L_10pp")
+
+ggplot() + 
+  geom_brain(data = bigbrain.frontal, atlas = glasser, mapping = aes(fill = cytoarchitecture.gradient), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
+  scale_fill_gradientn(colors = map.colorbar, limits = c(-.3, .3), oob = squish, na.value = "white") + 
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure4/Cytoarchitecture_corticalmap.pdf", device = "pdf", dpi = 500, width = 4.3, height = 2.2)
+```
+
+```{r}
+rate.bigbrain.bydepth <- data.frame(depth = factor(), histology.corr = double())
+for(this.depth in c(unique(regional.rate.alldepths$depth))){
+  depth.data <- regional.rate.alldepths %>% filter(depth == this.depth)
+  depth.data <- merge(depth.data, bigbrain)
+  corr <- cor(depth.data$cytoarchitecture.gradient, depth.data$rate, method = c("spearman"), use = "complete.obs")
+  corr <- data.frame(depth = this.depth, histology.corr = corr)
+  rate.bigbrain.bydepth <- rbind(rate.bigbrain.bydepth, corr)
+}
+rate.bigbrain.bydepth
+```
+
+```{r}
+rate.bigbrain.bydepth$depth <- factor(rate.bigbrain.bydepth$depth, ordered = T, levels = ordered_depths)
+ggplot(rate.bigbrain.bydepth, aes(x = histology.corr, y = depth,  fill = depth)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  xlab("\nDevelopmental correlation") +
+  ylab("Cortical compartment\n") +
+  scale_x_continuous(breaks = c(0, 0.35, 0.7)) +
+  scale_fill_manual(values = depth_colorbar) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure4/Cytoarchitecture_rate_depthcorrelation.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
+```
+
+```{r, message = F}
+regional.rate.alldepths %>% filter(depth == "superficial") %>% merge(., bigbrain) %>% 
+  ggplot(., aes(x = cytoarchitecture.gradient, y = rate)) + geom_point(size = .5) +
+  geom_smooth(method = "lm", linewidth = 1.5, color = depth_colorbar[3], fill = "gray78") +
+  labs(x="\nCytoarchitectural variation", y=sprintf("Rate of increase (derivative)\n")) +
+  scale_y_continuous(breaks = c(0, 0.001, 0.002)) +
+  theme_classic() +
+    theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure4/Cytoarchitecture_rate_superficial.pdf", device = "pdf", dpi = 500, width = 2.6, height = 1.7)
+```
+
+## Predicting myelin development from S-A axis and cytoarchitectural variation
+
+```{r}
+regional.rate.alldepths <- merge(regional.rate.alldepths, S.A.axis)
+regional.rate.alldepths <- merge(regional.rate.alldepths, bigbrain)
+regional.rate.superficial <- regional.rate.alldepths %>% filter(depth == "superficial")
+regional.rate.middle <- regional.rate.alldepths %>% filter(depth == "middle")
+regional.rate.deep <- regional.rate.alldepths %>% filter(depth == "deep")
+```
+
+**Superficial**
+
+```{r}
+summary(lm(rate ~ SA.axis + cytoarchitecture.gradient, data = regional.rate.superficial))
+```
+
+**Middle**
+
+```{r}
+summary(lm(rate ~ SA.axis + cytoarchitecture.gradient, data = regional.rate.middle))
+```
+
+**Deep**
+
+```{r}
+summary(lm(rate ~ SA.axis + cytoarchitecture.gradient, data = regional.rate.deep))
+```
+
+# Depth-wise Maturational Profiles Reflect Functional Diversity
+
+## Principal component of developmental variability, based on trajectory curvatures
+
+```{r}
+gam.smoothestimates.alldepths.long <- do.call(rbind, gam.smoothestimates.alldepths)
+gam.smoothestimates.alldepths.long <- gam.smoothestimates.alldepths.long %>% mutate(depth = factor(str_remove(row.names(gam.smoothestimates.alldepths.long), "\\..*")))
+```
+
+### PC1
+
+```{r}
+#A function to compute the curvature of the developmental trajectory
+curvature <- function(df, x,  y){
+age.spline <- with(df, smooth.spline(x, y, df = 10))
+first.deriv <- with(df, predict(age.spline, x = x, deriv = 1))
+second.deriv <- with(df, predict(age.spline, x = x, deriv = 2))
+
+k <- (second.deriv$y / ((1 + (first.deriv$y^2))^(3/2)))
+k <- abs(k)
+return(k)}
+```
+
+```{r}
+#Calculate average curvature of R1 growth trajectories for every region at every cortical depth
+trajectory.curvatures <- map_dfr(unique(gam.statistics.alldepths.long$orig_parcelname), function(r){
+  region.smooths <- gam.smoothestimates.alldepths.long %>% filter(orig_parcelname == r) #smooth fits for this region at all depths
+  depth.curvature <- region.smooths %>% group_by(depth) %>% do(curvature = mean(curvature(df = ., x = .$age , y = .$est))) %>% unnest(cols = c("curvature")) #calculate curvature of the smooth function
+  depth.curvature$orig_parcelname <- r
+  return(depth.curvature)
+})
+
+trajectory.curvatures <- merge(trajectory.curvatures, glasser.regions)
+trajectory.curvatures.wide <- trajectory.curvatures %>% pivot_wider(id_cols = c("label", "orig_parcelname"), names_from = "depth", values_from = "curvature") 
+```
+
+```{r}
+#run PCA
+curvature.PCA <- trajectory.curvatures.wide %>% select(deep, middle, superficial) %>% prcomp(.)
+```
+
+```{r}
+#variance explained
+summary(curvature.PCA) #88% of variance explained
+```
+
+```{r, warning = F, message = F}
+curvature.PC1 <- curvature.PCA$x[,1] %>% as.data.frame %>% purrr::set_names("PC1")
+curvature.PC1$PC1 <- as.numeric(scale(curvature.PC1$PC1))
+curvature.PC1$label <- trajectory.curvatures.wide$label
+curvature.PC1$orig_parcelname <- trajectory.curvatures.wide$orig_parcelname
+
+ggplot() + 
+   geom_brain(data = curvature.PC1, atlas = glasser, mapping = aes(fill = PC1), colour=I("gray10"), size=I(.08)) + theme_classic() +
+ paletteer::scale_fill_paletteer_c("ggthemes::Purple", na.value = "white", direction = -1, limits = c(-1.25, .75), oob = squish) +  
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
+  scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/PC1_curvature.pdf", device = "pdf", dpi = 500, width = 4.3, height = 2.2)
+```
+
+```{r}
+curvature.PC1$PC1.rank <- rank(curvature.PC1$PC1) #rank regions by PC1
+curvature.PC1$PC1.decile <- ntile(curvature.PC1$PC1, 10)
+```
+
+### Compartment curvatures in PC1 deciles
+
+```{r}
+#Compute average curvature across all regions in each PC1 decile
+PC1.curvatures <- merge(trajectory.curvatures, curvature.PC1, by = c("label"))
+
+PC1.curvatures <- PC1.curvatures %>% group_by(PC1.decile, depth) %>% do(average.curvature = mean(.$curvature)) %>% unnest(cols = average.curvature)
+PC1.curvatures$average.curvature.z <- scale(PC1.curvatures$average.curvature, scale = T, center = F)[,1] #scale curvature for ease of plotting. scale divides each data point by the SD
+```
+
+```{r}
+PC1.curvatures %>% filter(PC1.decile == 1 | PC1.decile == 3 | PC1.decile == 5 | PC1.decile == 7 | PC1.decile == 9) %>%
+   ggplot(aes(x = average.curvature.z, y = depth, group = PC1.decile, color = PC1.decile)) +
+  geom_point(size = 1.25) +
+  geom_path(linewidth = .5) +
+  theme_classic() +
+ paletteer::scale_color_paletteer_c("ggthemes::Purple", direction = -1) +  
+  xlab("\nCurvature (scaled)") +
+  ylab("Cortical compartment\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Depthplot_curvature.pdf", device = "pdf", dpi = 500, width = 2.5, height = 1.8)
+```
+
+### Compartment maturation in PC1 deciles
+
+```{r}
+#Compute average age of maturatoin across all regions in each PC1 decile
+PC1.maturation <- merge(regional.maturation.alldepths, curvature.PC1, by = "label", sort = F)
+PC1.maturation <-  PC1.maturation %>% group_by(PC1.decile, depth) %>% do(average.maturation = mean(.$smooth.increase.offset, na.rm = T)) %>% unnest(cols = c("average.maturation"))
+```
+
+```{r}
+PC1.maturation %>% filter(PC1.decile == 1 | PC1.decile == 3 | PC1.decile == 5 | PC1.decile == 7 | PC1.decile == 9) %>%
+  ggplot(aes(y = average.maturation, ymin = 20, x = depth, ymax = average.maturation, group = PC1.decile, color = PC1.decile)) +
+  geom_linerange(position = position_dodge(1), linewidth = .75) +
+   paletteer::scale_color_paletteer_c("ggthemes::Purple", direction = -1) +  
+  scale_y_continuous(breaks = c(20, 22, 24, 26, 28, 30, 32)) +
+  ylab("\nAge of maturation") +
+  xlab("Cortical compartment\n") +
+  coord_flip() +
+  theme_classic() +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 2.9, height = 1.8)
+```
+
+### Neurosynth decoding of PC1 deciles
+
+```{r}
+neurosynth.terms.PC1 <- merge(neurosynth.terms, curvature.PC1, by = c("label"))
+
+neurosynth.terms.PC1 <- ldply(neurosynth.termlist, function(t){
+  decode.df <- neurosynth.terms.PC1 %>% group_by(PC1.decile) %>% do(term.mean = mean(.[[t]])) %>% unnest(term.mean)
+  decode.df$term <- t
+  return(decode.df)})
+```
+
+```{r}
+neurosynth.terms.PC1 %>% filter(PC1.decile == 1) %>% slice_max(n = 5, order_by = term.mean) %>%
+ggplot(., aes(x = term.mean, y = term)) +
+  geom_segment(aes(y = reorder(term, term.mean), yend = term, x = 0, xend =  
+                     term.mean), color = "gray75", linewidth = .5) +
+  geom_point(size = 2, color = "#7c4d79") +
+  xlab("\nNeurosynth Term Score (z)") +
+  ylab("") +
+  theme_classic() +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 6, family = "Arial", color = c("black"), angle = 30, hjust = 1),
+        axis.text.x = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+```
+
+```{r include=FALSE}
+neurosynth.terms.PC1 %>% filter(PC1.decile == 1) %>% slice_max(n = 5, order_by = term.mean) %>%
+ggplot(., aes(x = term.mean, y = term)) +
+  geom_segment(aes(y = reorder(term, term.mean), yend = term, x = 0, xend =  
+                     term.mean), color = "gray75", linewidth = .5) +
+  geom_point(size = 2, color = "#7c4d79") +
+  xlab("\nNeurosynth term score (z)") +
+  ylab("") +
+  theme_classic() +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/PC1_decile1_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.9, height = 1.55)
+```
+
+```{r}
+neurosynth.terms.PC1 %>% filter(PC1.decile == 5) %>% slice_max(n = 5, order_by = term.mean) %>%
+ggplot(., aes(x = term.mean, y = term)) +
+  geom_segment(aes(y = reorder(term, term.mean), yend = term, x = 0, xend =  
+                     term.mean), color = "gray75", linewidth = .5) +
+  geom_point(size = 2, color = "#bb86a9") +
+  xlab("\nNeurosynth Term Score (z)") +
+  ylab("") +
+  theme_classic() +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 6, family = "Arial", color = c("black"), angle = 30, hjust = 1),
+        axis.text.x = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+```
+
+```{r include=FALSE}
+neurosynth.terms.PC1 %>% filter(PC1.decile == 5) %>% slice_max(n = 5, order_by = term.mean) %>%
+ggplot(., aes(x = term.mean, y = term)) +
+  geom_segment(aes(y = reorder(term, term.mean), yend = term, x = 0, xend =  
+                     term.mean), color = "gray75", linewidth = .5) +
+  geom_point(size = 2, color = "#bb86a9") +
+  xlab("\nNeurosynth term score (z)") +
+  ylab("") +
+  theme_classic() +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/PC1_decile5_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.9, height = 1.55)
+```
+
+```{r}
+neurosynth.terms.PC1 %>% filter(PC1.decile == 10) %>% slice_max(n = 5, order_by = term.mean) %>%
+ggplot(., aes(x = term.mean, y = term)) +
+  geom_segment(aes(y = reorder(term, term.mean), yend = term, x = 0, xend =  
+                     term.mean), color = "gray75", linewidth = .5) +
+  geom_point(size = 2, color = "#eec9e5") +
+  xlab("\nNeurosynth Term Score (z)") +
+  ylab("") +
+  theme_classic() +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 6, family = "Arial", color = c("black"), angle = 30, hjust = 1),
+        axis.text.x = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+```
+
+```{r include=FALSE}
+neurosynth.terms.PC1 %>% filter(PC1.decile == 10) %>% slice_max(n = 5, order_by = term.mean) %>%
+ggplot(., aes(x = term.mean, y = term)) +
+  geom_segment(aes(y = reorder(term, term.mean), yend = term, x = 0, xend =  
+                     term.mean), color = "gray75", linewidth = .5) +
+  geom_point(size = 2, color = "#eec9e5") +
+  xlab("\nNeurosynth term score (z)") +
+  ylab("") +
+  theme_classic() +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/PC1_decile10_neurosynth.pdf", device = "pdf", dpi = 500, width = 1.9, height = 1.55)
+```
+
+### Regional exemplars for PC1 deciles
+
+```{r}
+#Function to plot age smooth functions in exemplar regions
+plot.depth.smooths <- function(region, y_ticks){
+  
+  smooth.plot <- gam.smoothestimates.alldepths.long %>% filter(orig_parcelname == region) %>%
+  ggplot(., aes(x = age, y = est, group = depth, color = depth)) +
+  geom_line(linewidth = .5) +
+  theme_classic() +
+  xlab("\nAge (years)") +
+  ylab("R1 (zero-centered)\n") +
+  scale_y_continuous(breaks = y_ticks) +
+  scale_color_manual(values = depth_colorbar) +
+  theme(
+        legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+        axis.line = element_line(linewidth = .2), 
+        axis.ticks = element_line(linewidth = .2))
+  
+  return(smooth.plot)
+}
+```
+
+**Primary Motor (4)**
+
+```{r}
+curvature.PC1 %>% filter(orig_parcelname == "R_4_ROI")
+```
+
+```{r, message = F}
+glasser.regions %>% filter(orig_parcelname == "L_4_ROI") %>%
+ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I("gray25"), size=I(.07)), position = c("stacked"), hemisphere = "left", view = "lateral") + 
+  theme_void() + 
+  labs(fill="") +
+  scale_fill_manual(values = c("#7c4d79"), na.value = "white") +
+  theme(legend.position = "none")
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Area4_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+```
+
+```{r}
+plot.depth.smooths(region = "L_4_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Area4_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.82)
+```
+
+**Dorsolateral PFC (46)**
+
+```{r}
+curvature.PC1 %>% filter(orig_parcelname == "R_46_ROI")
+```
+
+```{r, message = F}
+glasser.regions %>% filter(orig_parcelname == "L_46_ROI") %>%
+ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I("gray25"), size=I(.07)), position = c("stacked"), hemisphere = "left", view = "lateral") + 
+  theme_void() + 
+  labs(fill="") +
+  scale_fill_manual(values = c("#bb86a9"), na.value = "white") +
+  theme(legend.position = "none")
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Area46_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+```
+
+```{r}
+plot.depth.smooths(region = "L_46_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Area46_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.82)
+```
+
+**Anterior Cingulate (a24)**
+
+```{r}
+curvature.PC1 %>% filter(orig_parcelname == "R_a24_ROI")
+```
+
+```{r, message = F}
+glasser.regions %>% filter(orig_parcelname == "R_a24_ROI") %>%
+ggseg(.data = ., atlas = "glasser", mapping=aes(fill = orig_parcelname, colour=I("gray25"), size=I(.07)), position = c("stacked"), hemisphere = "right", view = "medial") + 
+  theme_void() + 
+  labs(fill="") +
+  scale_fill_manual(values = c("#eec9e5"), na.value = "white") +
+  theme(legend.position = "none")
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Areaa24_corticalmap.pdf", device = "pdf", dpi = 500, width = .75, height = .55)
+```
+
+```{r}
+plot.depth.smooths(region = "R_a24_ROI", y_ticks = c(-0.01, 0, 0.01))
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure5/Areaa24_depthsmooths.pdf", device = "pdf", dpi = 500, width = 2.42, height = 1.83)
+```
