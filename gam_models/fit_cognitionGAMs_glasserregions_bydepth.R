@@ -29,9 +29,11 @@ participants.saccade <- left_join(participants, saccade.metrics, by = c("lunaid"
 participants.saccade <- participants.saccade %>% filter(!is.na(antiET.cor.lat)) %>% filter(!is.na(eeg.vgsLatency_DelayAll)) #187 sessions from 125 participants
 
 #Superficial and deep R1 measures for final study sample
-SGIGmyelin.glasser.7T <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/SGIGR1_glasseratlas_finalsample.RDS")
-SGIGmyelin.glasser.depths <- do.call(rbind, SGIGmyelin.glasser.7T)
-SGIGmyelin.glasser.depths$depth <- factor(sub("\\..*$", "", row.names(SGIGmyelin.glasser.depths)), levels = c("deep", "superficial"), ordered = T)
+myelin.compartments.7T <- readRDS("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/compartmentsR1_glasseratlas_finalsample.RDS")
+myelin.superficial.deep.7T <- do.call(rbind, myelin.compartments.7T)
+myelin.superficial.deep.7T <- myelin.superficial.deep.7T %>% mutate(depth = factor(str_remove(row.names(myelin.superficial.deep.7T), "\\..*")))
+myelin.superficial.deep.7T <- myelin.superficial.deep.7T %>% filter(depth != "middle")
+myelin.superficial.deep.7T$depth <- factor(myelin.superficial.deep.7T$depth, levels = c("deep", "superficial"), ordered = T)
 
 #Gam functions
 source("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/gam_models/gam_functions.R")
@@ -78,20 +80,20 @@ R1.cognition.deptheffect.gams <- function(input.depth.df, input.cognitive.df, co
 }
 
 ## Reaction time - stage 1
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_superficial_statistics.RDS")
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_deep_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_superficial_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_deep_statistics.RDS")
 
 ## Reaction time - stage 2
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_superficial_statistics.RDS")
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_deep_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_superficial_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_deep_statistics.RDS")
 
 ## Learning rate - stage 1
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_superficial_statistics.RDS")
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_deep_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_superficial_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_deep_statistics.RDS")
 
 ## Learning rate - stage 2
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_superficial_statistics.RDS")
-R1.cognition.deptheffect.gams(input.depth.df = SGIGmyelin.glasser.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_deep_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$superficial, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_superficial_statistics.RDS")
+R1.cognition.deptheffect.gams(input.depth.df = myelin.compartments.7T$deep, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_deep_statistics.RDS")
 
 ############################################################################################################
 #### Fit GAMs to statistically test whether associations between R1 and cognitive measures differ by depth (depth interactions) ####
@@ -123,16 +125,16 @@ R1.cognition.depthinteraction.gams <- function(input.depth.df, input.cognitive.d
 }
 
 ## Reaction time - stage 1
-R1.cognition.depthinteraction.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_depthinteraction.RDS")
+R1.cognition.depthinteraction.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_depthinteraction.RDS")
 
 ## Reaction time - stage 2
-R1.cognition.depthinteraction.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_depthinteraction.RDS")
+R1.cognition.depthinteraction.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_depthinteraction.RDS")
 
 ## Learning rate - stage 1
-R1.cognition.depthinteraction.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_depthinteraction.RDS")
+R1.cognition.depthinteraction.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_depthinteraction.RDS")
 
 ## Learning rate - stage 2
-R1.cognition.depthinteraction.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_depthinteraction.RDS")
+R1.cognition.depthinteraction.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_depthinteraction.RDS")
 
 ############################################################################################################
 #### Fit GAMs to quantify associations between R1 and cognitive measures across superficial and deep cortex ####
@@ -176,22 +178,19 @@ R1.cognition.maineffect.gams <- function(input.depth.df, input.cognitive.df, cog
 }
 
 ## Reaction time - stage 1
-R1.cognition.maineffect.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_SGIGdepths_maineffect.RDS")
+R1.cognition.maineffect.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "meanrts1", output.df.name = "rt1_SGIGdepths_maineffect.RDS")
 
 ## Reaction time - stage 2
-R1.cognition.maineffect.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_SGIGdepths_maineffect.RDS")
+R1.cognition.maineffect.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "meanrts2", output.df.name = "rt2_SGIGdepths_maineffect.RDS")
 
 ## Learning rate - stage 1
-R1.cognition.maineffect.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_SGIGdepths_maineffect.RDS")
+R1.cognition.maineffect.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "a1", output.df.name = "a1_SGIGdepths_maineffect.RDS")
 
 ## Learning rate - stage 2
-R1.cognition.maineffect.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_SGIGdepths_maineffect.RDS")
+R1.cognition.maineffect.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.daw, cognitive.measure = "a2", output.df.name = "a2_SGIGdepths_maineffect.RDS")
 
 ## Antisaccade
-R1.cognition.maineffect.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.saccade, cognitive.measure = "antiET.cor.lat", output.df.name = "antilatency_SGIGdepths_maineffect.RDS")
+R1.cognition.maineffect.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.saccade, cognitive.measure = "antiET.cor.lat", output.df.name = "antilatency_SGIGdepths_maineffect.RDS")
 
 ## VGS
-R1.cognition.maineffect.gams(input.depth.df = SGIGmyelin.glasser.depths, input.cognitive.df = participants.saccade, cognitive.measure = "eeg.vgsLatency_DelayAll", output.df.name = "vgslatency_SGIGdepths_maineffect.RDS")
-
-
-
+R1.cognition.maineffect.gams(input.depth.df = myelin.superficial.deep.7T, input.cognitive.df = participants.saccade, cognitive.measure = "eeg.vgsLatency_DelayAll", output.df.name = "vgslatency_SGIGdepths_maineffect.RDS")
