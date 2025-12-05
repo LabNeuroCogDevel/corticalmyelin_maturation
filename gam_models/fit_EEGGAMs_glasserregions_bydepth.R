@@ -6,7 +6,7 @@ library(tidyverse)
 library(dplyr)
 setwd("/Users/valeriesydnor/Documents/Image_Processing/corticalmyelin_development/")
 
-############################################################################################################
+###########################################################################################################
 #### Prepare Data and Functions ####
 
 #Brain region list
