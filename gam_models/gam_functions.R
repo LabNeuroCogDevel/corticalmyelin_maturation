@@ -1,3 +1,4 @@
+#A suite of GAM(M) functions
 library(tidyr)
 library(mgcv)
 library(gratia)
