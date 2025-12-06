@@ -1,4 +1,4 @@
-#A script to get R1 intensity values in the cortical ribbon from the MICA-PNI dataset 
+#A script to get R1 values at 14 depths in the cortical ribbon from the MICA-PNI dataset 
 library(dplyr)
 library(gifti)
 
