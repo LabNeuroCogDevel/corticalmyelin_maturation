@@ -1,0 +1,109 @@
+---
+title: "Frontal Layer Thickness in Histology and Ex-vivo MRI"
+author: "Valerie Jill Sydnor"
+output: 
+  rmdformats::material:
+    highlight: monochrome
+    lightbox: true
+    gallery: true
+    css: /Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/custom_css/myelinanatomy.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(cifti)
+library(kableExtra)
+```
+
+```{r}
+layers <- c("layer1", "layer2", "layer3", "layer4", "layer5", "layer6")
+```
+
+```{r}
+glasser.regions <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist.csv")
+glasser.snr.exclude <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/SNR/glasser_SNR_exclusion.csv")
+glasser.frontal <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/HCPMMP_glasseratlas/glasser360_regionlist_frontallobe.csv")
+```
+
+# Frontal Layer Thickness in BigBrain Histological Data (20 micrometer) 
+
+Quantitative layer thickness from postmortern histology (BigBrain) obtained from  https://github.com/caseypaquola/BigBrainWarp, based on Wagstyl et al., 2020, Plos Biology 
+
+```{r, warning = F}
+layer1.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_layerthickness/BBW_BigData/source-bigbrain_desc-layer1thickness_space-fsLR_den-32k.pscalar.nii")
+layer2.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_layerthickness/BBW_BigData/source-bigbrain_desc-layer2thickness_space-fsLR_den-32k.pscalar.nii")
+layer3.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_layerthickness/BBW_BigData/source-bigbrain_desc-layer3thickness_space-fsLR_den-32k.pscalar.nii")
+layer4.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_layerthickness/BBW_BigData/source-bigbrain_desc-layer4thickness_space-fsLR_den-32k.pscalar.nii")
+layer5.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_layerthickness/BBW_BigData/source-bigbrain_desc-layer5thickness_space-fsLR_den-32k.pscalar.nii")
+layer6.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/BigBrain_layerthickness/BBW_BigData/source-bigbrain_desc-layer6thickness_space-fsLR_den-32k.pscalar.nii")
+```
+
+```{r}
+compute.layer.thickness <- function(layer){
+  cifti.name <- sprintf("%s.cifti", layer)
+  cifti <- get(cifti.name)
+  layer.wholebrain <- data.frame(orig_parcelname = names(cifti$Parcel), thickness = cifti$data)
+  layer.frontal <-  layer.wholebrain %>% filter(
+                    orig_parcelname %in% glasser.frontal$orig_parcelname,
+                    !orig_parcelname %in% glasser.snr.exclude$orig_parcelname)
+  layer.frontal.meanthickness <- data.frame(layer = layer, thickness = mean(layer.frontal$thickness))
+  return(layer.frontal.meanthickness)
+}
+
+laminar.thickness.histology <- map_dfr(layers, compute.layer.thickness)
+```
+
+```{r}
+laminar.thickness.histology$thickness.proportion <- (laminar.thickness.histology$thickness / sum(laminar.thickness.histology$thickness))
+```
+
+```{r}
+kable(laminar.thickness.histology)
+```
+
+**Layer 1 percent thickness**
+
+```{r}
+0
+(laminar.thickness.histology$thickness.proportion[1])*100
+```
+
+**Layer 2/3 percent thickness**
+
+```{r}
+(laminar.thickness.histology$thickness.proportion[1])*100
+(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3])*100
+```
+
+**Layer 4 percent thickness**
+
+```{r}
+(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3])*100
+(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3] + laminar.thickness.histology$thickness.proportion[4])*100
+```
+
+**Layer 5/6 percent thickness**
+
+```{r}
+(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3] + laminar.thickness.histology$thickness.proportion[4])*100
+(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3] + laminar.thickness.histology$thickness.proportion[4] + laminar.thickness.histology$thickness.proportion[5] + laminar.thickness.histology$thickness.proportion[6])*100
+```
+
+# Frontal Layer Thickness in Ex-vivo MRI (120 micrometer) 
+
+Upper layers (1-3) proportion of thickness from ex-vivo MRI as quantified in Zeng et al., 2024, Cerebral Cortex
+
+```{r}
+upperlayer.thickness.exvivoMRI <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/Maps/ExvivoMRI_layerproportions/Frontal_supragranularlayer_percentages.csv")
+upperlayer.thickness.exvivoMRI$hemisphere_average <- upperlayer.thickness.exvivoMRI %>% select(Left_hemisphere, Right_hemisphere) %>% rowMeans
+```
+
+```{r}
+mean(upperlayer.thickness.exvivoMRI$hemisphere_average)
+sd(upperlayer.thickness.exvivoMRI$hemisphere_average)
+```
+
+
