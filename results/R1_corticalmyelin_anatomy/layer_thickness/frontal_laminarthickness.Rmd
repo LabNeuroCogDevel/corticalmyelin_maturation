@@ -16,6 +16,8 @@ library(tidyr)
 library(purrr)
 library(cifti)
 library(kableExtra)
+library(ggplot2)
+extrafont::loadfonts()
 ```
 
 ```{r}
@@ -42,54 +44,103 @@ layer6.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Ma
 ```
 
 ```{r}
-compute.layer.thickness <- function(layer){
+#Raw thickness values for L1-L6 in all analyzed frontal regions
+layerdata.frontal <- function(layer){
   cifti.name <- sprintf("%s.cifti", layer)
   cifti <- get(cifti.name)
-  layer.wholebrain <- data.frame(orig_parcelname = names(cifti$Parcel), thickness = cifti$data)
+  layer.wholebrain <- data.frame(orig_parcelname = names(cifti$Parcel), thickness = cifti$data) %>%
+    set_names("orig_parcelname", sprintf("%s.thickness", layer))
   layer.frontal <-  layer.wholebrain %>% filter(
                     orig_parcelname %in% glasser.frontal$orig_parcelname,
                     !orig_parcelname %in% glasser.snr.exclude$orig_parcelname)
-  layer.frontal.meanthickness <- data.frame(layer = layer, thickness = mean(layer.frontal$thickness))
-  return(layer.frontal.meanthickness)
+  return(layer.frontal)
 }
 
-laminar.thickness.histology <- map_dfr(layers, compute.layer.thickness)
+layer1.bigbrain <- layerdata.frontal("layer1")
+layer2.bigbrain <- layerdata.frontal("layer2")
+layer3.bigbrain <- layerdata.frontal("layer3")
+layer4.bigbrain <- layerdata.frontal("layer4")
+layer5.bigbrain <- layerdata.frontal("layer5")
+layer6.bigbrain <- layerdata.frontal("layer6")
+
+layers.bigbrain <- list(layer1.bigbrain, layer2.bigbrain, layer3.bigbrain, layer4.bigbrain, layer5.bigbrain, layer6.bigbrain)
+laminar.thickness.bigbrain <- Reduce(function(x, y) merge(x, y, by = "orig_parcelname", all = TRUE), layers.bigbrain)
 ```
 
 ```{r}
-laminar.thickness.histology$thickness.proportion <- (laminar.thickness.histology$thickness / sum(laminar.thickness.histology$thickness))
+#Calculate proportional thickness for L1-L6 in all frontal regions
+laminar.thickness.fraction.bigbrain <- laminar.thickness.bigbrain %>% select(-orig_parcelname)
+laminar.thickness.fraction.bigbrain <- laminar.thickness.fraction.bigbrain/rowSums(laminar.thickness.fraction.bigbrain)
 ```
 
 ```{r}
-kable(laminar.thickness.histology)
+#Mean proportional thickness across frontal regions
+laminar.thickness.fraction.bigbrain.average <- colMeans(laminar.thickness.fraction.bigbrain)
+laminar.thickness.fraction.bigbrain.average
 ```
 
-**Layer 1 percent thickness**
+**Layer 1 percent of cortical thickness**
 
 ```{r}
 0
-(laminar.thickness.histology$thickness.proportion[1])*100
+laminar.thickness.fraction.bigbrain.average[[1]]*100
 ```
 
-**Layer 2/3 percent thickness**
+**Layer 2/3 percent of cortical thickness**
 
 ```{r}
-(laminar.thickness.histology$thickness.proportion[1])*100
-(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3])*100
+(laminar.thickness.fraction.bigbrain.average[[1]])*100
+
+(laminar.thickness.fraction.bigbrain.average[[1]] + laminar.thickness.fraction.bigbrain.average[[2]] + laminar.thickness.fraction.bigbrain.average[[3]])*100
 ```
 
-**Layer 4 percent thickness**
+**Layer 4 percent of cortical thickness**
 
 ```{r}
-(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3])*100
-(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3] + laminar.thickness.histology$thickness.proportion[4])*100
+(laminar.thickness.fraction.bigbrain.average[[1]] + laminar.thickness.fraction.bigbrain.average[[2]] + laminar.thickness.fraction.bigbrain.average[[3]])*100
+(laminar.thickness.fraction.bigbrain.average[[1]] + laminar.thickness.fraction.bigbrain.average[[2]] + laminar.thickness.fraction.bigbrain.average[[3]] + laminar.thickness.fraction.bigbrain.average[[4]])*100
 ```
 
-**Layer 5/6 percent thickness**
+**Layer 5/6 percent of cortical thickness**
 
 ```{r}
-(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3] + laminar.thickness.histology$thickness.proportion[4])*100
-(laminar.thickness.histology$thickness.proportion[1] + laminar.thickness.histology$thickness.proportion[2] + laminar.thickness.histology$thickness.proportion[3] + laminar.thickness.histology$thickness.proportion[4] + laminar.thickness.histology$thickness.proportion[5] + laminar.thickness.histology$thickness.proportion[6])*100
+(laminar.thickness.fraction.bigbrain.average[[1]] + laminar.thickness.fraction.bigbrain.average[[2]] + laminar.thickness.fraction.bigbrain.average[[3]] + laminar.thickness.fraction.bigbrain.average[[4]])*100
+(laminar.thickness.fraction.bigbrain.average[[1]] + laminar.thickness.fraction.bigbrain.average[[2]] + laminar.thickness.fraction.bigbrain.average[[3]] + laminar.thickness.fraction.bigbrain.average[[4]] + laminar.thickness.fraction.bigbrain.average[[5]] + laminar.thickness.fraction.bigbrain.average[[6]])*100
+```
+
+```{r}
+#Calculate the relative fraction of cortex (% of thickness) occupied by L1, L2/3, L4, and L5/6 within each frontal region
+laminar.thickness.fraction.bigbrain$region <- gsub(pattern = "_ROI", "", laminar.thickness.bigbrain$orig_parcelname)
+
+laminar.thickness.fraction.bigbrain$b1 <- laminar.thickness.fraction.bigbrain$layer1.thickness
+laminar.thickness.fraction.bigbrain$b2 <- laminar.thickness.fraction.bigbrain$b1 + laminar.thickness.fraction.bigbrain$layer2.thickness + laminar.thickness.fraction.bigbrain$layer3.thickness
+laminar.thickness.fraction.bigbrain$b3 <- laminar.thickness.fraction.bigbrain$b2 + laminar.thickness.fraction.bigbrain$layer4.thickness
+
+layer.boundaries <- data.frame(region = laminar.thickness.fraction.bigbrain$region, 
+                               layer = rep(c("L1", "L2/3", "L4", "L5/6"), each = nrow(laminar.thickness.fraction.bigbrain)), 
+                               ymin = c(rep(0, nrow(laminar.thickness.fraction.bigbrain)), laminar.thickness.fraction.bigbrain$b1, laminar.thickness.fraction.bigbrain$b2, laminar.thickness.fraction.bigbrain$b3), 
+                               ymax = c(laminar.thickness.fraction.bigbrain$b1, laminar.thickness.fraction.bigbrain$b2, laminar.thickness.fraction.bigbrain$b3, rep(1, nrow(laminar.thickness.fraction.bigbrain))))
+layer.boundaries$ymin <- (layer.boundaries$ymin)*100
+layer.boundaries$ymax <- (layer.boundaries$ymax)*100
+
+layer.boundaries %>%
+  ggplot() +
+  geom_ribbon(aes(x = region, ymin = ymin, ymax = ymax, fill = layer, group = layer)) +
+  scale_fill_manual(values = c("#fff5fe", "#A29DC4", "#6992CC", "#004A38FF")) +
+  scale_y_reverse(limits = c(100, 0), breaks = c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  theme(
+      legend.text = element_text(size = 6, family ="Arial", color = c("black")),
+      legend.title = element_blank(),
+      axis.text.x = element_text(size = 3, family = "Arial", color = c("black")),
+      axis.text.y = element_text(size = 6, family = "Arial", color = c("black")),
+      axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+      axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+      axis.line = element_line(linewidth = .2), 
+      axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure2_supplementaryb/Laminar_cortexfraction_BigBrain.pdf", device = "pdf", width = 6.5, height = 3.5)
 ```
 
 # Frontal Layer Thickness in Ex-vivo MRI (120 micrometer) 
@@ -103,7 +154,17 @@ upperlayer.thickness.exvivoMRI$hemisphere_average <- upperlayer.thickness.exvivo
 
 ```{r}
 mean(upperlayer.thickness.exvivoMRI$hemisphere_average)
+```
+
+```{r}
 sd(upperlayer.thickness.exvivoMRI$hemisphere_average)
 ```
 
+```{r}
+min(upperlayer.thickness.exvivoMRI$hemisphere_average)
+```
+
+```{r}
+max(upperlayer.thickness.exvivoMRI$hemisphere_average)
+```
 
