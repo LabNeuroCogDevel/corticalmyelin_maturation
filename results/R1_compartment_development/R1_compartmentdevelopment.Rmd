@@ -380,7 +380,7 @@ compute_R1_longitudinalchange <- function(input.df){
   
   #longitudinal change in R1 scaled by change in age (delta R1/ delta age = R1 change slope!)
   R1.longitudinal.change <- R1.longitudinal.change %>% mutate(R1.change.slope = R1.change.raw/age.change)
-  
+
   #remove subjects with a single timepoint only
   R1.longitudinal.change <- R1.longitudinal.change %>% group_by(subject_id) %>% filter(n() > 1) %>% ungroup() 
 }
@@ -398,7 +398,7 @@ lapply(myelin.frontallobe.longchange, function(depth){
 })
 ```
 
-**Within-individual longitudinal slopes at exemplar depths**
+**Within-individual longitudinal slopes in superficial, middle, and deep cortex**
 
 ```{r}
 #Plot within-person R1 + slope at younger and older scans 
@@ -438,7 +438,7 @@ ggplot() +
 ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementaryb/Longitudinal_slopes.pdf", device = "pdf", dpi = 500, width = 2.65, height = 3.2)
 ```
 
-**R1 slopes (rate of change) at each cortical depths**
+**R1 slopes (rate of change) at each cortical depth**
 
 *All data: violin plots*
 
@@ -493,17 +493,10 @@ R1age.slope.longitudinal %>%
 ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementaryb/R1slope_depthplot_meanpoint.pdf", device = "pdf", dpi = 500, width = 2.15, height = 1.7)
 ```
 
-**Differences in within-individual rate of change by depth and age**
+**R1 slopes (rate of change) across the studied age range**
 
 ```{r}
-myelin.frontallobe.longchange.alldepths <- myelin.frontallobe.longchange.alldepths %>% filter(!is.na(R1.change.slope)) #75 longitudinal visits for superficial, middle, deep
-myelin.frontallobe.longchange.alldepths$depth <- as.numeric(myelin.frontallobe.longchange.alldepths$depth)
 myelin.frontallobe.longchange.alldepths <- as.data.frame(myelin.frontallobe.longchange.alldepths)
-
-summary(gam(R1.change.slope ~ s(mean.age, k = 4, fx = F) + s(depth, bs = "re"), method = c("REML"), data = myelin.frontallobe.longchange.alldepths))
-```
-
-```{r}
 R1rate.by.age.model <- gam.statistics.smooths(input.df = myelin.frontallobe.longchange.alldepths, region = "R1.change.slope", smooth_var = "mean.age", id_var = "depth", covariates = "NA", random_intercepts = TRUE, random_slopes = FALSE, knots = 4, set_fx = FALSE)
 ```
 
@@ -525,49 +518,9 @@ ggplot(R1rate.by.age.model$gam.fittedvalues, aes(x = mean.age, y = fitted)) +
 ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3_supplementaryb/R1slope_byage_trajectory.pdf", device = "pdf", dpi = 500, width = 2.07, height = 1.57)
 ```
 
-**Drivers of negative versus positive within-individual rate of change**
+# Heterochronous Laminar Myelination in the Frontal Cortex
 
-*Structural data quality (Euler number)*
-
-```{r, message = F}
-fs.qc <- arrow::read_parquet("/Volumes/Hera/Projects/corticalmyelin_development/BIDS/derivatives/surface_metrics/7T_BrainMechanisms_brainmeasures.parquet") %>% select(subject_id, session_id, lh_euler, rh_euler) #Euler numbers from fstabulate
-fs.qc$session_id <- gsub('.{15}$', '', fs.qc$session_id) 
-fs.qc$euler_number <- fs.qc %>% select(lh_euler, rh_euler) %>% rowMeans() 
-fs.qc <- left_join(participants, fs.qc)
-
-myelin.frontallobe.longchange.alldepths <- merge(myelin.frontallobe.longchange.alldepths, fs.qc)
-
-change.positive <- myelin.frontallobe.longchange.alldepths %>% filter(R1.change.slope > 0)
-change.negative <- myelin.frontallobe.longchange.alldepths %>% filter(R1.change.slope < 0)
-t.test(change.positive$euler_number, change.negative$euler_number)
-```
-
-*Age*
-
-```{r}
-t.test(change.positive$mean.age, change.negative$mean.age)
-```
-
-*Delta age*
-
-```{r}
-t.test(change.positive$age.change, change.negative$age.change)
-```
-*Sex*
-
-```{r}
-table(change.positive$sex) #53% female
-table(change.negative$sex) #76% female
-
-sex_data <- table(
-  group = c(rep("Group1", nrow(change.positive)), rep("Group2", nrow(change.negative))),
-  sex   = c(change.positive$sex, change.negative$sex)
-)
-chisq.test(sex_data)
-```
-# Myelin Develops Heterochronously Across Superficial, Middle, and Deep Cortex
-
-## Number of significant regional effects at each depth
+## Number of significant regional effects
 
 ```{r}
 #Function to calculate the number of significant age effects post-FDR
@@ -590,7 +543,9 @@ lapply(gam.statistics.alldepths, function(depth){
 })
 ```
 
-## Regional derivatives at each depth
+## Regional first derivatives 
+
+*Rate of developmental change*
 
 ```{r}
 gam.derivatives.alldepths.long <- do.call(rbind, gam.derivatives.alldepths)
@@ -598,7 +553,7 @@ gam.derivatives.alldepths.long <- gam.derivatives.alldepths.long %>% mutate(dept
 
 gam.derivatives.alldepths.long <- merge(gam.derivatives.alldepths.long, glasser.regions, sort = F)
 
-#Calculate the average first derivative in each region at each depth
+#Calculate the average first derivative (rate of increase) in each region at each depth
 regional.rate.alldepths <- gam.derivatives.alldepths.long %>% group_by(label, depth) %>% do(rate = mean(.$derivative)) %>% unnest(cols = "rate")
 
 #Calculate the average across-region first derivative at each depth
@@ -662,7 +617,9 @@ for(this.depth in c(unique(regional.rate.alldepths$depth))){
 rate.cov.bydepth
 ```
 
-## Regional age of maturation at each depth
+## Regional age of stabilization
+
+*Age of stabilization, i.e., age when developmental increases in R1 are no longer significant*
 
 ```{r}
 gam.statistics.alldepths.long <- do.call(rbind, gam.statistics.alldepths)
@@ -676,7 +633,39 @@ frontallobe.maturation.alldepths <- regional.maturation.alldepths %>% group_by(d
 frontallobe.maturation.alldepths$depth <- factor(frontallobe.maturation.alldepths$depth, ordered = T, levels = ordered_depths)
 ```
 
-### Depth-wise age of maturation plot
+### Depth-wise plot of the percent of frontal regions that stabilize
+
+```{r}
+superficial.maturation.percent <- (regional.maturation.alldepths %>% filter(depth == "superficial") %>% filter(smooth.increase.offset < 32) %>% nrow()) / 135
+
+middle.maturation.percent <- (regional.maturation.alldepths %>% filter(depth == "middle") %>% filter(smooth.increase.offset < 32) %>% nrow()) / 135
+
+deep.maturation.percent <- (regional.maturation.alldepths %>% filter(depth == "deep") %>% filter(smooth.increase.offset < 32) %>% nrow()) / 135
+
+maturation.percent <- data.frame(depth = ordered_depths, maturation.percent = c(deep.maturation.percent, middle.maturation.percent, superficial.maturation.percent))
+maturation.percent$maturation.percent <- maturation.percent$maturation.percent*100
+```
+
+```{r}
+ggplot(maturation.percent, aes(x = maturation.percent, xend = 0.2, y = depth, color = depth)) +
+  geom_segment(linewidth = 1.25) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = depth_colorbar) +
+  theme_classic() +
+  xlab("\nPercent stabilizing") +
+  ylab("Cortical compartment\n") +
+  theme(
+  legend.position = "none",
+  axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+  axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
+  axis.line = element_line(linewidth = .2), 
+  axis.ticks = element_line(linewidth = .2))
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/Depthplot_maturationpercent.pdf", device = "pdf", dpi = 500, width = 2.05, height = 2)
+```
+
+### Depth-wise age of stabilization plot
 
 ```{r}
 frontallobe.maturation.alldepths %>% 
@@ -685,7 +674,7 @@ frontallobe.maturation.alldepths %>%
   theme_classic() +
   scale_fill_manual(values = depth_colorbar) +
   xlab("\nAge of Maturation") +
-  ylab("Cortical Depth\n") +
+  ylab("Cortical Compartment\n") +
   scale_x_continuous(limits = c(25.95, 30.5)) +
   theme(
   legend.position = "none",
@@ -698,17 +687,22 @@ frontallobe.maturation.alldepths %>%
 ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure3/Depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 2.05, height = 2)
 ```
 
-### Depth-wise age of maturation brain plots
+### Depth-wise age of stabilization brain plots
 
 ```{r, message = F}
 for(this.depth in c(unique(regional.rate.alldepths$depth))){
   
   regional.mat.depth <- regional.maturation.alldepths %>% filter(depth == this.depth) %>% filter(label != "lh_L_10pp")
+  regional.mat.depth$mature <- ifelse(regional.mat.depth$smooth.increase.offset > 32, "no", "yes")
   
   derivative.plot <- ggplot() + 
   geom_brain(data = regional.mat.depth, atlas = glasser, mapping = aes(fill = smooth.increase.offset), colour=I("gray20"), size=I(.08)) + theme_classic() + theme(legend.position = "none") + 
-  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = 1, limits = c(26, 34), oob = squish, na.value = "white") +  
+  paletteer::scale_fill_paletteer_c("grDevices::PuBuGn", direction = 1, limits = c(25.5,29.5), oob = squish, na.value = "white") +  
   theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  new_scale_fill() + 
+  geom_brain(data = regional.mat.depth, atlas = glasser, mapping = aes(fill = mature), colour=I("gray20"), size=I(.08)) + theme_classic() +
+  theme(legend.position = "none", axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank()) +
+  scale_fill_manual(values = c("#ECE2F0FF", alpha("white", 0)), na.value = "white") +
   new_scale_fill() + 
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
@@ -719,20 +713,7 @@ for(this.depth in c(unique(regional.rate.alldepths$depth))){
 }
 ```
 
-### Coefficient of variation
-
-```{r}
-maturation.cov.bydepth <- data.frame(depth = factor(), cov = double())
-for(this.depth in c(unique(regional.rate.alldepths$depth))){
-  depth.data <- regional.maturation.alldepths %>% filter(depth == this.depth)
-  cov <- cv(depth.data$smooth.increase.offset, na.rm = T)
-  cov <- data.frame(depth = this.depth, cov = cov)
-  maturation.cov.bydepth <- rbind(maturation.cov.bydepth, cov)
-}
-maturation.cov.bydepth
-```
-
-# Frontal Myelin Matures Hierarchically in Superficial Cortex
+# Frontal Cortex Myelin Development Reflects Hierarchy and Anatomy
 
 ```{r}
 map.colorbar <- c("#edf6ff", "#c2d4ed", "#809dc4", "#345c91", "#0e4669")
@@ -906,7 +887,7 @@ summary(lm(rate ~ SA.axis + cytoarchitecture.gradient, data = regional.rate.midd
 summary(lm(rate ~ SA.axis + cytoarchitecture.gradient, data = regional.rate.deep))
 ```
 
-# Depth-wise Maturational Profiles Reflect Functional Diversity
+# Laminar Myelin Trajectories Differ Between Functionally Diverse Regions
 
 ## Principal component of developmental variability, based on trajectory curvatures
 
