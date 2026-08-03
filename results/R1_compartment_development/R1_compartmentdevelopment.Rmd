@@ -206,6 +206,19 @@ gam.summary <- function(depth){
 ```
 
 ```{r}
+#Function to fit a frontal lobe gam for a given depth (superficial, middle, deep) with an age-by-sex interaction and return model summary
+gam.agebysex.summary <- function(depth){
+  
+  depth.data <- depth
+  depth.data <- depth.data %>% mutate(osex = ordered(sex, levels = c("M", "F")))
+  
+  model <- gam(mean.R1 ~ s(age, k = 4, fx = F) + s(age, by = osex, k = 4, fx = F) + s(subject_id, bs = "re") + osex, method = c("REML"), data = depth.data)
+  
+  print(summary(model))
+}
+```
+
+```{r}
 #Function to fit a frontal lobe gam for a given depth and plot the developmental trajectory
 plot.trajectory <- function(depth, display_color, y_lims, y_ticks){
   
@@ -353,6 +366,26 @@ myelin.frontallobe.alldepths <- myelin.frontallobe.alldepths %>% mutate(depth.fa
 myelin.frontallobe.alldepths$depth <- as.numeric(myelin.frontallobe.alldepths$depth.factor) 
 
 summary(gam(mean.R1 ~ s(age, k = 3, fx = F) + s(depth, k = 3, fx = F) + te(age, depth, k = c(3, 3)) + s(subject_id, by = depth.factor, bs = "re"), method = "REML", data = myelin.frontallobe.alldepths))
+```
+
+### Sex differences 
+
+**Superficial**
+
+```{r}
+gam.agebysex.summary(myelin.frontallobe.7T$superficial)
+```
+
+**Middle**
+
+```{r}
+gam.agebysex.summary(myelin.frontallobe.7T$middle)
+```
+
+**Deep**
+
+```{r}
+gam.agebysex.summary(myelin.frontallobe.7T$deep)
 ```
 
 ## Robust longitudinal increases in frontal lobe R1 
@@ -555,10 +588,23 @@ gam.derivatives.alldepths.long <- merge(gam.derivatives.alldepths.long, glasser.
 
 #Calculate the average first derivative (rate of increase) in each region at each depth
 regional.rate.alldepths <- gam.derivatives.alldepths.long %>% group_by(label, depth) %>% do(rate = mean(.$derivative)) %>% unnest(cols = "rate")
+regional.rate.alldepths.wide <- regional.rate.alldepths %>% pivot_wider(id_cols = c("label"), names_from = "depth", values_from = "rate")
 
 #Calculate the average across-region first derivative at each depth
 frontallobe.rate.alldepths <- regional.rate.alldepths %>% group_by(depth) %>% do(mean.rate = mean(.$rate)) %>% unnest(cols = "mean.rate")
 frontallobe.rate.alldepths$depth <- factor(frontallobe.rate.alldepths$depth, ordered = T, levels = ordered_depths)
+```
+
+```{r}
+t.test(regional.rate.alldepths.wide$superficial, regional.rate.alldepths.wide$middle, paired = T)
+```
+
+```{r}
+t.test(regional.rate.alldepths.wide$middle, regional.rate.alldepths.wide$deep, paired = T)
+```
+
+```{r}
+t.test(regional.rate.alldepths.wide$superficial, regional.rate.alldepths.wide$deep, paired = T)
 ```
 
 ### Depth-wise derivative plot
@@ -627,6 +673,7 @@ gam.statistics.alldepths.long <- gam.statistics.alldepths.long %>% mutate(depth 
 
 regional.maturation.alldepths <- gam.statistics.alldepths.long
 regional.maturation.alldepths <- merge(regional.maturation.alldepths, glasser.regions, sort = F)
+regional.maturation.alldepths.wide <- regional.maturation.alldepths %>% pivot_wider(id_cols = "label", names_from = "depth", values_from = "smooth.increase.offset")
 
 #Calculate the average across-region age of maturation at each depth
 frontallobe.maturation.alldepths <- regional.maturation.alldepths %>% group_by(depth) %>% do(mean.age = mean(.$smooth.increase.offset, na.rm = T)) %>% unnest(cols = "mean.age")
@@ -644,6 +691,31 @@ deep.maturation.percent <- (regional.maturation.alldepths %>% filter(depth == "d
 
 maturation.percent <- data.frame(depth = ordered_depths, maturation.percent = c(deep.maturation.percent, middle.maturation.percent, superficial.maturation.percent))
 maturation.percent$maturation.percent <- maturation.percent$maturation.percent*100
+```
+
+```{r}
+regional.maturation.alldepths.wide <- regional.maturation.alldepths.wide %>% mutate(
+        superficial.mat = if_else(is.na(superficial) | superficial < 32, "stabilizes", "increases"),
+        middle.mat = if_else(is.na(middle) | middle < 32, "stabilizes", "increases"),
+        deep.mat = if_else(is.na(deep) | deep < 32, "stabilizes", "increases"))
+```
+
+```{r}
+maturation.contingency <- table(regional.maturation.alldepths.wide$superficial.mat, regional.maturation.alldepths.wide$middle.mat)
+
+mcnemar.test(maturation.contingency)
+```
+
+```{r}
+maturation.contingency <- table(regional.maturation.alldepths.wide$middle.mat, regional.maturation.alldepths.wide$deep.mat)
+
+mcnemar.test(maturation.contingency)
+```
+
+```{r}
+maturation.contingency <- table(regional.maturation.alldepths.wide$superficial.mat, regional.maturation.alldepths.wide$deep.mat)
+
+mcnemar.test(maturation.contingency)
 ```
 
 ```{r}
