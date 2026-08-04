@@ -60,20 +60,21 @@ depth_colorbar <-  c("#004A38FF", "#6992CC", "#A29DC4")
 depth_colorbar_reverse <-  c("#A29DC4", "#6992CC", "#004A38FF")
 ```
 
-S-A Axis
-
-```{r, warning=F}
-#S-A axis or saxis as nicknamed by Dan Margulies on a trip to gingerworld
-S.A.axis.cifti <- read_cifti("/Volumes/Hera/Projects/corticalmyelin_development/Maps/S-A_ArchetypalAxis/FSLRVertex/SensorimotorAssociation_Axis_parcellated/SensorimotorAssociation.Axis.Glasser360.pscalar.nii") #S-A_ArchetypalAxis repo
-S.A.axis <- data.frame(SA.axis = rank(S.A.axis.cifti$data), orig_parcelname = names(S.A.axis.cifti$Parcel))
-S.A.axis <- merge(S.A.axis, glasser.regions, by = "orig_parcelname")
-```
-
 Final participant list
 
 ```{r}
 participants <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/sample_info/7T_MP2RAGE_finalsample_demographics.csv")
 participants <- participants %>% mutate(subses = sprintf("%s_%s", subject_id, session_id))
+```
+
+Main analysis developmental results
+
+```{r}
+main.results.stats <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/R1_compartment_development/R1_compartment_developmental_statistics.csv")
+colnames(main.results.stats)[6] <- "smooth.increase.offset.main"
+colnames(main.results.stats)[7] <- "rate.main"
+main.results.pc1 <- read.csv("/Volumes/Hera/Projects/corticalmyelin_development/code/corticalmyelin_maturation/results/R1_compartment_development/R1_pc1_maturationalvariability.csv")
+colnames(main.results.pc1)[3] <- "PC1.main"
 ```
 
 GAM outputs: developmental effects
@@ -124,7 +125,7 @@ gam.derivatives.alldepths <- lapply(gam.derivatives.alldepths, function(depth){
 })
 ```
 
-# Myelin Develops Heterochronously Across Superficial, Middle, and Deep Cortex
+# Heterochronous Laminar Myelination in the Frontal Cortex
 
 ## Number of significant regional effects at each depth
 
@@ -149,7 +150,7 @@ lapply(gam.statistics.alldepths, function(depth){
 })
 ```
 
-## Regional derivatives at each depth
+## Regional first derivatives
 
 ```{r}
 gam.derivatives.alldepths.long <- do.call(rbind, gam.derivatives.alldepths)
@@ -158,10 +159,44 @@ gam.derivatives.alldepths.long <- merge(gam.derivatives.alldepths.long, glasser.
 
 #Calculate the average first derivative in each region at each depth
 regional.rate.alldepths <- gam.derivatives.alldepths.long %>% group_by(label, depth) %>% do(rate = mean(.$derivative)) %>% unnest(cols = "rate")
+regional.rate.alldepths.wide <- regional.rate.alldepths %>% pivot_wider(id_cols = label, names_from = depth, values_from = rate)
 
 #Calculate the average across-region first derivative at each depth
 frontallobe.rate.alldepths <- regional.rate.alldepths %>% group_by(depth) %>% do(mean.rate = mean(.$rate)) %>% unnest(cols = "mean.rate")
-frontallobe.rate.alldepths$depth <- c("D", "M", "S")
+```
+
+```{r}
+t.test(regional.rate.alldepths.wide$superficial, regional.rate.alldepths.wide$deep, paired = T)
+```
+
+**Main and sensitivity analysis rate correlation**
+
+```{r}
+main.results.stats <- left_join(main.results.stats, regional.rate.alldepths)
+```
+
+```{r}
+main.results.stats %>% group_by(depth) %>% do(rate.corr = cor(.$rate.main, .$rate)) %>% unnest(cols = c("rate.corr"))
+```
+
+```{r, warning = F, message = F}
+ggplot(main.results.stats, aes(x = rate, y = rate.main, group = depth, color = depth)) +
+    geom_smooth(method = "lm", se = F, linewidth = 0.8) +
+    geom_abline(intercept = 0, slope = 1, linewidth = 0.5, color = "gray40", linetype = "dashed") +
+    scale_x_continuous(limits = c(0, 0.003)) + 
+    theme_classic() +
+    scale_color_manual(values = depth_colorbar) +
+    xlab("\nRate (derivative): Curvature") +
+    ylab("Rate (derivative): Main\n") + 
+    theme(
+    legend.position = "none",
+    axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+    axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
+    axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
+    axis.line = element_line(linewidth = .2), 
+    axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/curvature_derivative_resultscorr.pdf", device = "pdf", dpi = 500, width = 1.75, height = 1.7)
 ```
 
 **Depth-wise derivative plot**
@@ -169,12 +204,12 @@ frontallobe.rate.alldepths$depth <- c("D", "M", "S")
 ```{r}
 frontallobe.rate.alldepths %>% 
   ggplot(aes(x = mean.rate, y = depth, fill = depth)) +
-  geom_point(shape = 23, size = 3, color = "white") +
+  geom_point(shape = 23, size = 4.5, color = "white") +
   theme_classic() +
   scale_fill_manual(values = depth_colorbar) +
   xlab("\nRate (derivative)") +
-  ylab("Cortical compartment\n") +
-  scale_x_continuous(breaks = c(0.001, 0.002), limits = c(0.001, 0.0021)) +
+  ylab("Compartment") +
+  scale_x_continuous(breaks = c(0.001, 0.0018), limits = c(0.001, 0.0019)) +
   theme(
   legend.position = "none",
   axis.text = element_text(size = 6, family = "Arial", color = c("black")),
@@ -183,7 +218,7 @@ frontallobe.rate.alldepths %>%
   axis.line = element_line(linewidth = .2), 
   axis.ticks = element_line(linewidth = .2)) 
 
-ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/Curvature_depthplot_derivative.pdf", device = "pdf", dpi = 500, width = 1.1, height = 1.3)
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/curvature_depthplot_derivative.pdf", device = "pdf", dpi = 500, width = 1.81, height = 1.5)
 ```
 
 **Depth-wise derivative brain plots**
@@ -202,43 +237,95 @@ for(this.depth in c("superficial", "deep")){
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
   
   print(derivative.plot)
-  
-ggsave(filename = sprintf("/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/Curvature_%s_rate_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.15, height = 1.7)
 }
 ```
 
-## Regional age of maturation at each depth
+## Regional age of stabilization
 
 ```{r}
 gam.statistics.alldepths.long <- do.call(rbind, gam.statistics.alldepths)
 regional.maturation.alldepths <- gam.statistics.alldepths.long %>% mutate(depth = factor(str_remove(row.names(gam.statistics.alldepths.long), "\\..*")))
 regional.maturation.alldepths <- merge(regional.maturation.alldepths, glasser.regions, sort = F)
+regional.maturation.alldepths.wide <- regional.maturation.alldepths %>% pivot_wider(id_cols = "label", names_from = "depth", values_from = "smooth.increase.offset")
 
 #Calculate the average across-region age of maturation at each depth
 frontallobe.maturation.alldepths <- regional.maturation.alldepths %>% group_by(depth) %>% do(mean.age = mean(.$smooth.increase.offset, na.rm = T)) %>% unnest(cols = "mean.age")
-frontallobe.maturation.alldepths$depth <- c("D", "M", "S")
 ```
 
-**Depth-wise age of maturation plot**
+```{r}
+regional.maturation.alldepths.wide <- regional.maturation.alldepths.wide %>% mutate(
+        superficial.mat = if_else(is.na(superficial) | superficial < 32, "stabilizes", "increases"),
+        middle.mat = if_else(is.na(middle) | middle < 32, "stabilizes", "increases"),
+        deep.mat = if_else(is.na(deep) | deep < 32, "stabilizes", "increases"))
+
+maturation.contingency <- table(regional.maturation.alldepths.wide$superficial.mat, regional.maturation.alldepths.wide$deep.mat)
+
+mcnemar.test(maturation.contingency)
+```
+
+**Main and sensitivity analysis maturation correlation**
 
 ```{r}
-frontallobe.maturation.alldepths %>% 
-  ggplot(aes(x = mean.age, y = depth, fill = depth)) +
-  geom_point(shape = 23, size = 3, color = "white") +
+regional.maturation.alldepths <- regional.maturation.alldepths %>% select(label, depth, smooth.increase.offset)
+main.results.stats <- left_join(main.results.stats, regional.maturation.alldepths)
+```
+
+```{r}
+main.results.stats %>% group_by(depth) %>% do(mat.corr = cor(.$smooth.increase.offset.main, .$smooth.increase.offset, use = "complete.obs")) %>% unnest(cols = c("mat.corr"))
+```
+
+```{r, warning = F, message = F}
+ggplot(main.results.stats, aes(x = smooth.increase.offset, y = smooth.increase.offset.main, group = depth, color = depth)) +
+    geom_smooth(method = "lm", se = F, linewidth = 0.8) +
+    geom_abline(intercept = 0, slope = 1, linewidth = 0.5, color = "gray40", linetype = "dashed") +
+    scale_x_continuous(limits = c(18, 33)) + 
+    scale_y_continuous(limits = c(18, 33)) + 
+    theme_classic() +
+    scale_color_manual(values = depth_colorbar) +
+    xlab("\nAge of R1 stabilization: Curvature") +
+    ylab("Age of R1 \nstabilization: Main\n") + 
+    theme(
+    legend.position = "none",
+    axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+    axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
+    axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
+    axis.line = element_line(linewidth = .2), 
+    axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/curvature_maturation_resultscorr.pdf", device = "pdf", dpi = 500, width = 1.72, height = 1.7)
+```
+
+**Depth-wise percent stabilizing plot**
+
+```{r}
+superficial.maturation.percent <- (regional.maturation.alldepths %>% filter(depth == "superficial") %>% filter(smooth.increase.offset < 32) %>% nrow()) / 135
+
+middle.maturation.percent <- (regional.maturation.alldepths %>% filter(depth == "middle") %>% filter(smooth.increase.offset < 32) %>% nrow()) / 135
+
+deep.maturation.percent <- (regional.maturation.alldepths %>% filter(depth == "deep") %>% filter(smooth.increase.offset < 32) %>% nrow()) / 135
+
+maturation.percent <- data.frame(depth = ordered_depths, maturation.percent = c(deep.maturation.percent, middle.maturation.percent, superficial.maturation.percent))
+maturation.percent$maturation.percent <- maturation.percent$maturation.percent*100
+```
+
+```{r}
+ggplot(maturation.percent, aes(x = maturation.percent, xend = 0.2, y = depth, color = depth)) +
+  geom_segment(linewidth = 1) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = depth_colorbar) +
+  scale_x_continuous(limits = c(0, 82.5)) + 
   theme_classic() +
-  scale_fill_manual(values = depth_colorbar) +
-  xlab("\nMaturation (years)") +
-  ylab("Cortical compartment\n") +
-  scale_x_continuous(limits = c(25.7, 30.5), breaks = c(26, 28, 30)) +
+  xlab("\nPercent stabilizing") +
+  ylab("Compartment") +
   theme(
   legend.position = "none",
   axis.text = element_text(size = 6, family = "Arial", color = c("black")),
   axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
   axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
   axis.line = element_line(linewidth = .2), 
-  axis.ticks = element_line(linewidth = .2)) 
+  axis.ticks = element_line(linewidth = .2))
 
-ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/Curvature_depthplot_maturation.pdf", device = "pdf", dpi = 500, width = 1.1, height = 1.3)
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/curvature_depthplot_stabilizing.pdf", device = "pdf", dpi = 500, width = 1.85, height = 1.5)
 ```
 
 **Depth-wise age of maturation brain plots**
@@ -257,68 +344,14 @@ for(this.depth in c("superficial", "deep")){
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
   
   print(derivative.plot)
-  
-ggsave(filename = sprintf("/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/Curvature_%s_maturation_corticalmap.pdf", this.depth), device = "pdf", dpi = 500, width = 3.15, height = 1.7)
 }
 ```
 
-# Depth-wise Maturational Profiles Reflect Functional Diversity
-
-## Depth-dependent trajectories in exemplar regions
+# Laminar Myelin Trajectories Differ Between Functionally Diverse Regions
 
 ```{r}
 gam.smoothestimates.alldepths.long <- do.call(rbind, gam.smoothestimates.alldepths)
 gam.smoothestimates.alldepths.long <- gam.smoothestimates.alldepths.long %>% mutate(depth = factor(str_remove(row.names(gam.smoothestimates.alldepths.long), "\\..*")))
-```
-
-```{r}
-#Function to plot age smooth functions in exemplar regions
-plot.depth.smooths <- function(region, y_ticks){
-
-  gam.smoothestimates.alldepths.long$depth <- factor(gam.smoothestimates.alldepths.long$depth, ordered = T, levels = depth.list)
-  
-  smooth.plot <- gam.smoothestimates.alldepths.long %>% filter(orig_parcelname == region) %>%
-  ggplot(., aes(x = age, y = est, group = depth, color = depth)) +
-  geom_line(linewidth = .35) +
-  theme_classic() +
-  xlab("\nAge (years)") +
-  ylab("R1 (centered)\n") +
-  scale_y_continuous(breaks = y_ticks) +
-  scale_x_continuous(breaks = c(10, 20, 30)) +
-  scale_color_manual(values = depth_colorbar_reverse) +
-  theme(
-        legend.position = "none", 
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        axis.text = element_text(size = 6, family = "Arial", color = c("black")),
-        axis.title.x = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.title.y = element_text(size = 7, family ="Arial", color = c("black")),
-        axis.line = element_line(linewidth = .2), 
-        axis.ticks = element_line(linewidth = .2))
-  
-  return(smooth.plot)
-}
-```
-
-**Primary Motor (4)**
-
-```{r}
-plot.depth.smooths(region = "L_4_ROI", y_ticks = c(-0.04, -0.02, 0, 0.02))
-ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/Curvature_Area4_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
-```
-
-**Dorsolateral PFC (46)**
-
-```{r}
-plot.depth.smooths(region = "L_46_ROI", y_ticks = c(-0.02, -0.01, 0, 0.01))
-ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/Curvature_Area46_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
-```
-
-**Anterior Cingulate (a24)**
-
-```{r}
-plot.depth.smooths(region = "L_a24_ROI", y_ticks = c(-0.01, 0, 0.01))
-ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/Curvature_Areaa24_depthsmooths.pdf", device = "pdf", dpi = 500, width = 1.5, height = 1.4)
 ```
 
 ## Principal component of developmental variability, based on trajectory curvatures
@@ -372,6 +405,31 @@ ggplot() +
   geom_brain(data = glasser.plotting, atlas = glasser, mapping = aes(fill = cortex),  colour=I(alpha("gray50", 0)), size=I(0)) +
   scale_fill_manual(values = c(alpha("white", 0), "gray75")) 
 
-ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6_supplementary/Curvature_PC1_curvature.pdf", device = "pdf", dpi = 500, width = 4.3, height = 2.2)
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/curvature_PC1_curvature.pdf", device = "pdf", dpi = 500, width = 4.3, height = 2.2)
+```
+
+```{r}
+main.results.pc1 <- left_join(main.results.pc1, curvature.PC1)
+cor.test(main.results.pc1$PC1.main, main.results.pc1$PC1)
+```
+
+```{r, warning = F, message = F}
+ggplot(main.results.pc1, aes(x = PC1, y = PC1.main, color = PC1.main)) +
+    geom_point(size = 1) +
+    geom_smooth(method = "lm", se = F, linewidth = .7, color = "black") +
+    scale_y_continuous(limits = c(-3,1.5)) + 
+    paletteer::scale_color_paletteer_c("ggthemes::Purple", na.value = "white", direction = -1) +
+    theme_classic() +
+    xlab("\nPC scores: Curvature") +
+    ylab("PC scores: Main\n") + 
+    theme(
+    legend.position = "none",
+    axis.text = element_text(size = 6, family = "Arial", color = c("black")),
+    axis.title.x = element_text(size = 6, family ="Arial", color = c("black")),
+    axis.title.y = element_text(size = 6, family ="Arial", color = c("black")),
+    axis.line = element_line(linewidth = .2), 
+    axis.ticks = element_line(linewidth = .2)) 
+
+ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyelin_PlasticityDevelopment/Publications/Publication_Images/Figure6/curvature_PC1_resultscorr.pdf", device = "pdf", dpi = 500, width = 1.65, height = 1.7)
 ```
 
