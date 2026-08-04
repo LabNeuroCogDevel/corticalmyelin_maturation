@@ -129,10 +129,8 @@ names(gam.results.alldepths) <- list("superficial", "middle", "deep")
 ```{r}
 #Extract the 4 types of results and format
 gam.statistics.alldepths <- lapply(gam.results.alldepths, '[[', "gam.statistics.df" )
-gam.statistics.allregions <- gam.statistics.alldepths #whole brain data
 gam.fittedvalues.alldepths <-  lapply(gam.results.alldepths, '[[', "gam.fittedvalues.df" )
 gam.smoothestimates.alldepths <- lapply(gam.results.alldepths, '[[', "gam.smoothestimates.df" )
-gam.smoothestimates.allregions <- lapply(gam.results.alldepths, '[[', "gam.smoothestimates.df" ) #wholebrain data
 gam.derivatives.alldepths <- lapply(gam.results.alldepths, '[[', "gam.derivatives.df" )
 
 format_depth_dfs <- function(depth){
@@ -151,18 +149,6 @@ gam.smoothestimates.alldepths <- lapply(gam.smoothestimates.alldepths, function(
 })
 gam.derivatives.alldepths <- lapply(gam.derivatives.alldepths, function(depth){
   format_depth_dfs(depth)
-})
-
-format_region_dfs <- function(depth){
-  depth <-  depth[!(depth$orig_parcelname %in% glasser.snr.exclude$orig_parcelname),] #exclude low SNR parcels
-}
-
-gam.statistics.allregions <- lapply(gam.statistics.allregions, function(depth){
-  format_region_dfs(depth)
-})
-
-gam.smoothestimates.allregions <- lapply(gam.smoothestimates.allregions, function(depth){
-  format_region_dfs(depth)
 })
 ```
 
