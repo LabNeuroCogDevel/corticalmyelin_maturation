@@ -518,9 +518,9 @@ ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyeli
 ## Neurosynth decoding of learning rate regions
 
 ```{r}
-a2.significant.regions <- maineffect.dfs$a2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(significant == TRUE) %>% select(label) #25 regions with a significant across-depth association between R1 and stage 2 learning rate
+a2.significant.regions <- maineffect.dfs$a2_SGIGdepths_maineffect$gam.statistics.df %>% mutate(significant = p.adjust(GAM.covsmooth.pvalue, method = "fdr") < 0.05) %>% filter(significant == TRUE) %>% select(label) #16 regions with a significant across-depth association between R1 and stage 2 learning rate
 
-neurosynth.terms.a2 <- neurosynth.terms[neurosynth.terms$label %in% a2.significant.regions$label,] %>% select(-label) #neurosynth z-scores in the 25 significant regions
+neurosynth.terms.a2 <- neurosynth.terms[neurosynth.terms$label %in% a2.significant.regions$label,] %>% select(-label) #neurosynth z-scores in the significant regions
 neurosynth.terms.a2.weights <- colMeans(neurosynth.terms.a2) %>% as.data.frame() %>% set_names("term.mean")
 neurosynth.terms.a2.weights$term <- row.names(neurosynth.terms.a2.weights)
 
@@ -781,7 +781,7 @@ ggsave(filename = "/Users/valeriesydnor/Documents/ResearchProjects/CorticalMyeli
 
 ```{r, warning = F}
 #Compare GAM statistics derived from across-depth main effects when associating R1 with stage 1 response time, stage 2 response time, anti-saccade response time, and visually-guided saccade reaction time. Statistics are from identical models 
-rt.statistics <- data.frame(rt1 = maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, rt2 = maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, anti = maineffect.dfs$antilatency_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, vgs = maineffect.dfs$vgslatency_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue) #giving all the F(values)
+rt.statistics <- data.frame(rt1 = maineffect.dfs$rt1_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, rt2 = maineffect.dfs$rt2_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, anti = maineffect.dfs$antilatency_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue, vgs = maineffect.dfs$vgslatency_SGIGdepths_maineffect$gam.statistics.df$GAM.covsmooth.Fvalue) #giving all the F values
 rt.statistics <- rt.statistics %>% pivot_longer(everything(), names_to = "task", values_to = "RT")
 rt.statistics$task <- factor(rt.statistics$task, levels = c("rt1", "rt2", "anti", "vgs"))
 
