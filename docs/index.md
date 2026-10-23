@@ -1,6 +1,6 @@
 <br>
 <br>
-# Heterochronous laminar maturation in the human prefrontal cortex 
+# Heterochronous laminar myelination in the human prefrontal cortex 
 
 ### Project Lead
 Valerie J. Sydnor
@@ -15,7 +15,7 @@ Daniel Petrie, Shane D. McKeon, Alyssa Famalette, Will Foran, Finnegan J. Calabr
 September 2023
 
 ### Current Project Status
-Manuscript in submission
+Published in Nature Communications
 
 ### Datasets
 Luna-7T
